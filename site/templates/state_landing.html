@@ -1,0 +1,299 @@
+{% extends "base.html" %}
+
+{% block title %}{{ state_name }} Federal Contractors | FedComp Index{% endblock %}
+{% block description %}FedComp Index competitive intelligence for {{ state_name }} federal contractors. Market movers, recent awards, and top-ranked contractors by certification.{% endblock %}
+
+{% set active = state_code %}
+{% set canonical = '/' + state_code + '/' %}
+
+{% block structured_data %}
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "CollectionPage",
+  "name": "{{ state_name }} Federal Contractors - FedComp Index",
+  "description": "FedComp Index competitive intelligence for {{ state_name }} federal contractors. Posture scores, posture classes, and rankings.",
+  "url": "{{ site_url }}/{{ state_code }}/",
+  "dateModified": "{{ data_date }}",
+  "isPartOf": {"@type": "WebSite", "name": "FedComp Index", "url": "{{ site_url }}/"},
+  "about": {
+    "@type": "GovernmentService",
+    "name": "Federal Contracting in {{ state_name }}",
+    "serviceArea": {"@type": "AdministrativeArea", "name": "{{ state_name }}"}
+  }
+}
+</script>
+{% endblock %}
+
+{% block content %}
+<div class="index-header">
+  <div class="index-header-left">
+    <h1 class="page-title">{{ state_name }}</h1>
+    <span class="muted">Federal contractor competitive intelligence</span>
+  </div>
+  <div class="stat-bar">
+    <div class="stat-bar-item" title="{{ state_name }} contractors with at least one award in the past 5 years">
+      <span class="label">Contractors</span>
+      <span class="stat-bar-val">{{ stats.total }}</span>
+    </div>
+    <div class="stat-bar-item">
+      <span class="label">Avg Score</span>
+      <span class="stat-bar-val">{{ stats.avg_score }}</span>
+    </div>
+    <div class="stat-bar-item">
+      <span class="label">Class 1</span>
+      <span class="stat-bar-val">{{ stats.class_1_count }}</span>
+    </div>
+  </div>
+</div>
+
+<div class="chart-card" style="margin-top:20px;">
+  <div class="chart-head">
+    <span class="label" id="carousel-label">Award Activity</span>
+    <span id="chart-updated" class="muted" style="font-size:var(--sz-label);"></span>
+  </div>
+  <div style="position:relative;height:160px;">
+    <canvas id="state-chart" style="position:absolute;inset:0;"></canvas>
+    <canvas id="carousel-chart" style="position:absolute;inset:0;display:none;"></canvas>
+  </div>
+  <div class="carousel-nav">
+    <div class="carousel-dots" id="carousel-dots"></div>
+    <div class="carousel-controls">
+      <button class="carousel-btn" id="carousel-prev">&#8249;</button>
+      <button class="carousel-btn" id="carousel-next">&#8250;</button>
+    </div>
+  </div>
+</div>
+<script>window.__STATE_CODE__ = {{ state_code | upper | tojson }};</script>
+<script>window.__CHARTS_DATA__ = {{ charts_data | tojson }};</script>
+
+
+<div class="landing-card">
+  <div class="section-title">Top 5 by Certification</div>
+  <div class="cert-grid">
+    {% for cert in ['8(a)', 'HUBZone', 'WOSB', 'EDWOSB', 'VOSB', 'SDVOSB'] %}
+    <div class="cert-col">
+      <div class="cert-col-head">{{ cert }}</div>
+      {% if top_by_cert[cert] %}
+      <table>
+        <tbody>
+          {% for c in top_by_cert[cert] %}
+          <tr>
+            <td class="rank">{{ loop.index }}</td>
+            <td style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">
+              <a href="/dossier/{{ c.slug }}/">{{ c.name }}</a>
+            </td>
+            <td style="text-align:right;white-space:nowrap;"><span class="badge {{ c.score_class }}">{{ c.score }}</span></td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      {% else %}
+      <div class="muted" style="font-size:var(--sz-label);padding:8px 0;">No data</div>
+      {% endif %}
+    </div>
+    {% endfor %}
+  </div>
+</div>
+
+<div class="landing-card">
+  <div class="section-title">Recent Awards</div>
+  <div id="recent-awards">
+    <div class="muted" style="font-size:var(--sz-label);padding:8px 0;">Loading...</div>
+  </div>
+</div>
+
+<div class="landing-card">
+  <div class="section-title">Top Performers</div>
+  <div class="top-performers-grid">
+    {% for window_key, window_label in [('30d', 'Past 30 Days'), ('6m', 'Past 6 Months')] %}
+    <div class="top-performers-col">
+      <div class="cert-col-head">{{ window_label }}</div>
+      {% if top_performers[window_key] %}
+      <table>
+        <tbody>
+          {% for c in top_performers[window_key] %}
+          <tr>
+            <td class="rank" style="vertical-align:top;">{{ loop.index }}</td>
+            <td style="word-break:break-word;">
+              <a href="/dossier/{{ c.slug }}/">{{ c.name }}</a>
+            </td>
+            <td style="text-align:right;white-space:nowrap;font-family:var(--font-mono);font-size:var(--sz-label);vertical-align:top;" class="muted">${{ c.total_m }}M</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      {% else %}
+      <div class="muted" style="font-size:var(--sz-label);padding:8px 0;">No data</div>
+      {% endif %}
+    </div>
+    {% endfor %}
+  </div>
+  <div class="top-performers-grid" style="margin-top:20px;">
+    {% for window_key, window_label in [('1yr', 'Past Year'), ('5yr', 'Past 5 Years')] %}
+    <div class="top-performers-col">
+      <div class="cert-col-head">{{ window_label }}</div>
+      {% if top_performers[window_key] %}
+      <table>
+        <tbody>
+          {% for c in top_performers[window_key] %}
+          <tr>
+            <td class="rank" style="vertical-align:top;">{{ loop.index }}</td>
+            <td style="word-break:break-word;">
+              <a href="/dossier/{{ c.slug }}/">{{ c.name }}</a>
+            </td>
+            <td style="text-align:right;white-space:nowrap;font-family:var(--font-mono);font-size:var(--sz-label);vertical-align:top;" class="muted">${{ c.total_m }}M</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      {% else %}
+      <div class="muted" style="font-size:var(--sz-label);padding:8px 0;">No data</div>
+      {% endif %}
+    </div>
+    {% endfor %}
+  </div>
+</div>
+
+<div class="muted" style="font-size:var(--sz-label);text-align:center;margin-top:32px;padding:16px 0;">{{ stats.win_pct }}% of registered {{ state_name }} contractors have won a federal award in the past 5 years.</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script>
+(function() {
+  var d = window.__CHARTS_DATA__;
+  if (!d) return;
+
+  var MUTED   = '#64748B';
+  var BORDER  = '#1E293B';
+  var ACCENT  = '#2563EB';
+  var SUCCESS = '#059669';
+  var WARN    = '#D97706';
+  var DANGER  = '#DC2626';
+  var TEXT    = '#E2E8F0';
+
+  var stateCanvas   = document.getElementById('state-chart');
+  var carouselCanvas = document.getElementById('carousel-chart');
+  var labelEl  = document.getElementById('carousel-label');
+  var updatedEl = document.getElementById('chart-updated');
+  var dotsEl   = document.getElementById('carousel-dots');
+
+  var ttip = { backgroundColor:'#141B2D', borderColor:BORDER, borderWidth:1, titleColor:TEXT, bodyColor:MUTED, padding:8 };
+  var gridStyle = { color:BORDER };
+  var tickStyle = { color:MUTED, font:{ size:11, family:'Geist Mono' } };
+
+  var slides = [
+    { label: 'Award Activity', live: true },
+    {
+      label: 'Score Distribution',
+      build: function() {
+        return {
+          type: 'bar',
+          data: {
+            labels: ['0-9','10-19','20-29','30-39','40-49','50-59','60-69','70-79','80-89','90-99'],
+            datasets: [{ data: d.score_dist, backgroundColor: d.score_dist.map(function(_,i){ return i>=6?SUCCESS:i>=4?WARN:DANGER; }), borderRadius: 2 }]
+          },
+          options: {
+            responsive:true, maintainAspectRatio:false, animation:{duration:400},
+            plugins: { legend:{display:false}, tooltip:ttip },
+            scales: { x:{ticks:tickStyle,grid:gridStyle}, y:{ticks:tickStyle,grid:gridStyle} }
+          }
+        };
+      }
+    },
+    {
+      label: 'Agency Share',
+      build: function() {
+        var colors = [ACCENT,'#3B82F6','#6366F1','#8B5CF6','#A855F7','#C084FC'];
+        return {
+          type: 'doughnut',
+          data: {
+            labels: d.top_agencies.map(function(x){ return x.name; }),
+            datasets: [{ data: d.top_agencies.map(function(x){ return x.value_m; }), backgroundColor: colors, borderColor: '#141B2D', borderWidth: 2 }]
+          },
+          options: {
+            responsive:true, maintainAspectRatio:false, animation:{duration:400},
+            cutout: '55%',
+            plugins: { legend:{ display:true, position:'right', labels:{ color:MUTED, font:{size:11,family:'Geist'}, boxWidth:10, padding:8 } }, tooltip:Object.assign({},ttip,{callbacks:{label:function(c){return c.label+': $'+c.raw+'M'}}}) }
+          }
+        };
+      }
+    },
+    {
+      label: 'Certification Coverage',
+      build: function() {
+        var certs = ['8(a)','HUBZone','WOSB','EDWOSB','VOSB','SDVOSB'];
+        var counts = certs.map(function(c){ return d.cert_coverage[c] || 0; });
+        var certColors = [ACCENT,'#3B82F6',SUCCESS,'#10B981',WARN,'#F59E0B'];
+        return {
+          type: 'bar',
+          data: {
+            labels: certs,
+            datasets: [{ data: counts, backgroundColor: certColors, borderRadius: 2 }]
+          },
+          options: {
+            responsive:true, maintainAspectRatio:false, animation:{duration:400},
+            plugins: { legend:{display:false}, tooltip:Object.assign({},ttip,{callbacks:{label:function(c){return c.raw+' contractors'}}}) },
+            scales: { x:{ticks:tickStyle,grid:{display:false}}, y:{ticks:tickStyle,grid:gridStyle} }
+          }
+        };
+      }
+    }
+  ];
+
+  var current = 0;
+  var chart = null;
+
+  slides.forEach(function(_, i) {
+    var dot = document.createElement('span');
+    dot.className = 'carousel-dot' + (i === 0 ? ' active' : '');
+    dot.addEventListener('click', function() { goTo(i); });
+    dotsEl.appendChild(dot);
+  });
+
+  function goTo(idx) {
+    current = (idx + slides.length) % slides.length;
+    var slide = slides[current];
+    labelEl.textContent = slide.label;
+
+    if (slide.live) {
+      stateCanvas.style.display = '';
+      carouselCanvas.style.display = 'none';
+      if (updatedEl) updatedEl.style.display = '';
+      if (chart) { chart.destroy(); chart = null; }
+    } else {
+      stateCanvas.style.display = 'none';
+      carouselCanvas.style.display = '';
+      if (updatedEl) updatedEl.style.display = 'none';
+      if (chart) chart.destroy();
+      chart = new Chart(carouselCanvas, slide.build());
+    }
+
+    document.querySelectorAll('.carousel-dot').forEach(function(d, i) { d.classList.toggle('active', i === current); });
+  }
+
+  var timer = null;
+
+  function resetTimer() {
+    if (timer) clearTimeout(timer);
+    // restart the dot animation by removing/re-adding active class
+    var activeDot = dotsEl.querySelector('.carousel-dot.active');
+    if (activeDot) {
+      activeDot.classList.remove('active');
+      activeDot.offsetWidth;
+      activeDot.classList.add('active');
+    }
+    timer = setTimeout(function() { goTo(current + 1); resetTimer(); }, 10000);
+  }
+
+  document.getElementById('carousel-prev').addEventListener('click', function() { goTo(current - 1); resetTimer(); });
+  document.getElementById('carousel-next').addEventListener('click', function() { goTo(current + 1); resetTimer(); });
+  dotsEl.addEventListener('click', function() { resetTimer(); });
+
+  goTo(0);
+  resetTimer();
+})();
+</script>
+{% endblock %}

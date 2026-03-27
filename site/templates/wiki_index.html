@@ -1,0 +1,89 @@
+{% extends "base.html" %}
+
+{% block title %}Wiki | FedComp Index{% endblock %}
+{% block description %}FedComp Index wiki. Vocabulary, concepts, and methodology for federal contractor competitive positioning.{% endblock %}
+
+{% set active = 'methodology' %}
+{% set canonical = '/wiki/' %}
+
+{% block structured_data %}
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "CollectionPage",
+  "name": "FedComp Index Wiki",
+  "description": "Vocabulary, concepts, and methodology for federal contractor competitive positioning. FedComp Index terminology reference.",
+  "url": "{{ site_url }}/wiki/",
+  "dateModified": "{{ data_date }}",
+  "publisher": {"@type": "Organization", "name": "FedComp Index", "url": "{{ site_url }}/"},
+  "mainEntity": {
+    "@type": "DefinedTermSet",
+    "name": "FedComp Index Terminology",
+    "description": "Official terminology for the FedComp Index federal contractor competitive positioning methodology.",
+    "url": "{{ site_url }}/wiki/",
+    "hasDefinedTerm": [
+      {"@type": "DefinedTerm", "name": "FedComp Index", "url": "{{ site_url }}/wiki/"},
+      {"@type": "DefinedTerm", "name": "Posture Class", "url": "{{ site_url }}/wiki/"},
+      {"@type": "DefinedTerm", "name": "Index Drivers", "url": "{{ site_url }}/wiki/"},
+      {"@type": "DefinedTerm", "name": "Proximity Map", "url": "{{ site_url }}/wiki/"},
+      {"@type": "DefinedTerm", "name": "Contractor Dossier", "url": "{{ site_url }}/wiki/"},
+      {"@type": "DefinedTerm", "name": "Posture Card", "url": "{{ site_url }}/wiki/"},
+      {"@type": "DefinedTerm", "name": "Tabularium", "url": "{{ site_url }}/wiki/"},
+      {"@type": "DefinedTerm", "name": "Position Drift", "url": "{{ site_url }}/wiki/"},
+      {"@type": "DefinedTerm", "name": "Award Volume", "url": "{{ site_url }}/wiki/"},
+      {"@type": "DefinedTerm", "name": "Award Recency", "url": "{{ site_url }}/wiki/"},
+      {"@type": "DefinedTerm", "name": "Competitive Radius", "url": "{{ site_url }}/wiki/"},
+      {"@type": "DefinedTerm", "name": "NAICS Corridor", "url": "{{ site_url }}/wiki/"},
+      {"@type": "DefinedTerm", "name": "Spectators", "url": "{{ site_url }}/wiki/"}
+    ]
+  },
+  "breadcrumb": {
+    "@type": "BreadcrumbList",
+    "itemListElement": [
+      {"@type": "ListItem", "position": 1, "name": "Home", "item": "{{ site_url }}/"},
+      {"@type": "ListItem", "position": 2, "name": "Wiki", "item": "{{ site_url }}/wiki/"}
+    ]
+  }
+}
+</script>
+{% endblock %}
+
+{% block content %}
+<div class="landing-card" style="margin-top:0;margin-bottom:24px;">
+  <h1 class="page-title" style="margin-bottom:6px;">Wiki</h1>
+  <span class="muted">Vocabulary, concepts, and methodology</span>
+</div>
+
+<div style="max-width:680px;">
+
+  <div class="landing-card" style="margin-bottom:16px;">
+    <a href="/methodology/" style="display:flex;align-items:center;justify-content:space-between;padding:4px 0;text-decoration:none;">
+      <div>
+        <div style="color:var(--text);font-weight:600;">Scoring Methodology</div>
+        <span class="muted" style="font-size:var(--sz-label);">How the FedComp Index score is calculated</span>
+      </div>
+      <span style="color:var(--muted);font-size:var(--sz-label);">methodology</span>
+    </a>
+  </div>
+
+  {% set grouped = {} %}
+  {% for a in articles %}
+    {% if a.term not in grouped %}
+      {% if grouped.update({a.term: []}) %}{% endif %}
+    {% endif %}
+    {% if grouped[a.term].append(a) %}{% endif %}
+  {% endfor %}
+
+  {% for term, term_articles in grouped | dictsort %}
+  <div class="landing-card" style="margin-bottom:16px;">
+    <div style="font-size:var(--sz-label);text-transform:uppercase;letter-spacing:0.05em;color:var(--muted);margin-bottom:12px;">{{ term }}</div>
+    <div style="display:flex;flex-direction:column;gap:6px;">
+      {% for a in term_articles %}
+      <a href="/wiki/{{ a.slug }}/" style="display:block;padding:10px 14px;background:var(--bg);border:1px solid var(--border);border-radius:var(--r);color:var(--text);font-size:var(--sz-body);text-decoration:none;">{{ a.title }}</a>
+      {% endfor %}
+    </div>
+  </div>
+  {% endfor %}
+
+</div>
+{% endblock %}

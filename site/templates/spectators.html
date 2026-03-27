@@ -1,0 +1,132 @@
+{% extends "base.html" %}
+
+{% block title %}Spectators | FedComp Index{% endblock %}
+{% block description %}Live spectator feed. See which federal contractors are being researched right now.{% endblock %}
+
+{% set active = 'spectators' %}
+{% set canonical = '/spectators/' %}
+
+{% block structured_data %}
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "WebPage",
+  "name": "FedComp Index Spectators",
+  "description": "Live spectator feed tracking which federal contractors are being researched. Real-time attention data for Nevada contractors.",
+  "url": "{{ site_url }}/spectators/",
+  "dateModified": "{{ data_date }}",
+  "image": "{{ site_url }}/static/img/FedComp-Index-Spectators-Wide-1.png",
+  "isPartOf": {"@type": "WebSite", "name": "FedComp Index", "url": "{{ site_url }}/"}
+}
+</script>
+{% endblock %}
+
+{% block content %}
+<div class="tab-hero">
+  <img src="/static/img/FedComp-Index-Spectators-Wide-1.png" alt="FedComp Index Spectators - contractor observation chamber" class="tab-hero-img">
+  <div class="tab-hero-overlay" style="display:flex;justify-content:space-between;align-items:flex-end;">
+    <div>
+      <h1 class="page-title">Spectators</h1>
+      <span class="muted">Live contractor attention feed</span>
+    </div>
+    <div class="stat-bar" style="margin:0;">
+      <div class="stat-bar-item">
+        <span class="label">Views 7d</span>
+        <span class="stat-bar-val" id="views-24h">-</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="landing-card" style="margin-top:20px;">
+  <div class="section-title">Most Watched</div>
+  <div id="trending-list">
+    <div class="muted" style="font-size:var(--sz-label);padding:8px 0;">Loading...</div>
+  </div>
+</div>
+
+<div class="landing-card">
+  <div class="section-title">Recent Activity</div>
+  <div id="feed-list">
+    <div class="muted" style="font-size:var(--sz-label);padding:8px 0;">Loading...</div>
+  </div>
+</div>
+
+<script>
+(function() {
+  var apiBase = {{ api_url | tojson }};
+  var cageIndex = null;
+
+  function relTime(ts) {
+    var diff = Math.floor((Date.now() - new Date(ts + 'Z')) / 1000);
+    if (diff < 60) return diff + 's ago';
+    if (diff < 3600) return Math.floor(diff/60) + 'm ago';
+    if (diff < 86400) return Math.floor(diff/3600) + 'h ago';
+    return Math.floor(diff/86400) + 'd ago';
+  }
+
+  function lookupCage(cage) {
+    if (!cageIndex) return { name: cage, slug: null };
+    var entry = cageIndex[cage];
+    if (!entry) return { name: cage, slug: null };
+    return entry;
+  }
+
+  function renderName(cage) {
+    var c = lookupCage(cage);
+    if (c.slug) return '<a href="/dossier/' + c.slug + '/">' + c.name + '</a>';
+    return '<span class="muted">' + cage + '</span>';
+  }
+
+  // Load cage->name index, then load feed
+  fetch('/static/cage_index.json')
+    .then(function(r) { return r.json(); })
+    .then(function(data) { cageIndex = data; })
+    .catch(function() {})
+    .finally(loadFeed);
+
+  function loadFeed() {
+    fetch(apiBase + '/api/feed')
+      .then(function(r) { return r.json(); })
+      .then(function(data) {
+        var trending = data.trending || [];
+        var recent = data.recent || [];
+
+        // Stats
+        var total24 = trending.reduce(function(s, t) { return s + t.views; }, 0);
+        document.getElementById('views-24h').textContent = total24;
+
+        // Most Watched
+        var tEl = document.getElementById('trending-list');
+        if (!trending.length) {
+          tEl.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;min-height:60px;"><span class="muted" style="font-size:var(--sz-label);">No activity in the past 24 hours</span></div>';
+        } else {
+          tEl.innerHTML = '<table><thead><tr><th>#</th><th>Contractor</th><th style="text-align:right;">Views</th></tr></thead><tbody>'
+            + trending.map(function(t, i) {
+              return '<tr><td class="rank">' + (i+1) + '</td><td>' + renderName(t.id) + '</td><td style="text-align:right;font-family:var(--font-mono);">' + t.views + '</td></tr>';
+            }).join('')
+            + '</tbody></table>';
+        }
+
+        // Recent feed
+        var fEl = document.getElementById('feed-list');
+        if (!recent.length) {
+          fEl.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;min-height:60px;"><span class="muted" style="font-size:var(--sz-label);">No spectators yet</span></div>';
+        } else {
+          fEl.innerHTML = recent.map(function(r, i) {
+            var isFirst = i === 0;
+            return '<div style="display:flex;align-items:center;gap:12px;padding:8px 0;' + (i < recent.length - 1 ? 'border-bottom:1px solid var(--border);' : '') + '">'
+              + '<div style="width:6px;height:6px;border-radius:50%;background:' + (isFirst ? 'var(--success)' : 'var(--border)') + ';flex-shrink:0;"></div>'
+              + '<span style="flex:1;">' + renderName(r.id) + '</span>'
+              + '<span class="muted" style="font-size:var(--sz-label);white-space:nowrap;">' + relTime(r.ts) + '</span>'
+              + '</div>';
+          }).join('');
+        }
+      }).catch(function() {
+        document.getElementById('trending-list').innerHTML = '<div class="muted" style="font-size:var(--sz-label);padding:8px 0;">Could not load.</div>';
+        document.getElementById('feed-list').innerHTML = '<div class="muted" style="font-size:var(--sz-label);padding:8px 0;">Could not load.</div>';
+      });
+  }
+})();
+</script>
+{% endblock %}

@@ -1,0 +1,115 @@
+{% extends "base.html" %}
+
+{% block title %}Methodology | FedComp Index{% endblock %}
+{% block description %}FedComp Index scoring specification. Two index drivers, posture class thresholds, proximity map algorithm.{% endblock %}
+
+{% set active = 'methodology' %}
+{% set canonical = '/methodology/' %}
+
+{% block structured_data %}
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "Article",
+  "headline": "FedComp Index Scoring Methodology",
+  "description": "Scoring specification for the FedComp Index. Two index drivers, posture class thresholds, proximity map algorithm, data source instruments.",
+  "url": "{{ site_url }}/methodology/",
+  "datePublished": "2026-03-23",
+  "dateModified": "{{ data_date }}",
+  "image": "{{ site_url }}/static/img/FedComp-Index-Methodology-Wide-1.png",
+  "author": {"@type": "Organization", "name": "FedComp Index", "url": "{{ site_url }}/"},
+  "publisher": {"@type": "Organization", "name": "FedComp Index", "url": "{{ site_url }}/", "logo": {"@type": "ImageObject", "url": "{{ site_url }}/static/img/fedcompindex.svg"}}
+}
+</script>
+{% endblock %}
+
+{% block content %}
+<div class="tab-hero">
+  <img src="/static/img/FedComp-Index-Methodology-Wide-1.png" alt="FedComp Index scoring methodology - tribunal chamber" class="tab-hero-img">
+  <div class="tab-hero-overlay">
+    <h1 class="page-title">Methodology</h1>
+    <span class="muted">Scoring formula, posture class thresholds, proximity map algorithm</span>
+  </div>
+</div>
+
+<div style="max-width:680px;">
+
+<div class="section" style="padding-top:0;">
+  <p style="font-family:monospace;font-size:var(--sz-label);color:var(--muted);">FedComp Index Score = (Award Volume × 0.90) + (Award Recency × 0.10)</p>
+  <p>Scalar posture score, domain [0, 100]. Derived from public federal obligation records via <a href="https://usaspending.gov">USASpending.gov</a> and <a href="https://sam.gov">SAM.gov</a>. Absolute scale, invariant to state population.</p>
+</div>
+
+<div class="section">
+  <div class="section-title">Volume Component (w = 0.90)</div>
+  <p>Aggregate obligated dollars, trailing 5-year window. Log10-normalized to [0, 100].</p>
+  <div class="table-wrap" style="margin-top:8px;margin-bottom:12px;">
+    <table>
+      <tbody>
+        <tr><td class="muted" style="font-size:var(--sz-label);">$10K</td><td style="text-align:right;font-weight:600;">0</td></tr>
+        <tr><td class="muted" style="font-size:var(--sz-label);">$1M</td><td style="text-align:right;font-weight:600;">33</td></tr>
+        <tr><td class="muted" style="font-size:var(--sz-label);">$10M</td><td style="text-align:right;font-weight:600;">50</td></tr>
+        <tr><td class="muted" style="font-size:var(--sz-label);">$100M</td><td style="text-align:right;font-weight:600;">67</td></tr>
+        <tr><td class="muted" style="font-size:var(--sz-label);">$1B</td><td style="text-align:right;font-weight:600;">83</td></tr>
+        <tr><td class="muted" style="font-size:var(--sz-label);">$10B</td><td style="text-align:right;font-weight:600;">100</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p>A $100M contractor and a $10M contractor are incommensurable on a linear scale. Log10 gives each order of magnitude equivalent index weight.</p>
+</div>
+
+<div class="section">
+  <div class="section-title">Recency Component (w = 0.10)</div>
+  <p>Step function on most recent award date. Discrete year-boundary buckets, not continuous decay:</p>
+  <div class="table-wrap" style="margin-top:8px;margin-bottom:12px;">
+    <table>
+      <tbody>
+        <tr><td>Past 12 months</td><td style="text-align:right;font-weight:600;">100</td></tr>
+        <tr><td>1–2 years</td><td style="text-align:right;font-weight:600;">60</td></tr>
+        <tr><td>2–3 years</td><td style="text-align:right;font-weight:600;">30</td></tr>
+        <tr><td>3–5 years</td><td style="text-align:right;font-weight:600;">10</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p>Separates active from dormant. Position drift of up to 9 points occurs as an obligor's recency bucket decays.</p>
+</div>
+
+<div class="section">
+  <div class="section-title">Posture Class Thresholds</div>
+  <div class="table-wrap" style="margin-top:8px;margin-bottom:12px;">
+    <table>
+      <tbody>
+        <tr><td><span class="tag">Posture Class 1</span></td><td class="muted" style="font-size:var(--sz-label);">Score 60+ - approximately $100M+ in 5-year obligations</td></tr>
+        <tr><td><span class="tag">Posture Class 2</span></td><td class="muted" style="font-size:var(--sz-label);">Score 40–59 - approximately $5M–$100M</td></tr>
+        <tr><td><span class="tag">Posture Class 3</span></td><td class="muted" style="font-size:var(--sz-label);">Below 40 - sub-$5M or marginal procurement footprint</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p>Fixed thresholds, not percentile cutoffs. Posture class assignment is state-invariant and orthogonal to SBA certifications, set-aside eligibility, and firm size standards.</p>
+  <p>Each contractor's posture class appears on the state rankings page and their individual contractor dossier.</p>
+</div>
+
+<div class="section">
+  <div class="section-title">Proximity Map Algorithm</div>
+  <p>Directed graph resolving the six contractors nearest in competitive topology (the graph structure defined by shared procurement code overlap among obligors within a bounded scale range). Inputs: <a href="https://www.census.gov/naics/">NAICS</a> and <a href="https://www.acquisition.gov/PSC_Manual">PSC</a> codes from awarded contracts, not SAM registration claims.</p>
+  <p><strong>Code overlap.</strong> Each shared code weighted by 1/n<sup>2</sup> where n = contractors with awards in that code. PSC codes carry 2× base weight. Inverse document frequency: rare code coincidences yield concentrated signal, common codes yield diluted signal.</p>
+  <p><strong>Scale filter.</strong> Overlap multiplied by (min/max)<sup>2</sup> of total award volumes. Scale-disjoint pairs converge to zero: a $50M and $500K obligor sharing a rare code are not contending on the same solicitations.</p>
+  <p>The graph is asymmetric. Contractor A appearing in B's proximity map does not guarantee the converse. The competitive radius of each contractor dossier is unique.</p>
+  <p>See the <a href="/faq/">FAQ</a> for applied use cases including FAR Part 10 market research and subcontracting.</p>
+</div>
+
+<div class="section">
+  <div class="section-title">Source Instruments</div>
+  <ul style="margin:8px 0 0;padding-left:20px;line-height:1.8;">
+    <li><strong>SAM.gov</strong> - entity registration, certifications, NAICS codes</li>
+    <li><strong>USASpending.gov</strong> - obligations, PSC codes, awarding agency</li>
+  </ul>
+  <p>Conventional market research under FAR Part 10 relies on SAM.gov keyword queries, which return firms that registered under a NAICS code, not firms that won contracts in it. The distinction is between declared intent and demonstrated obligation. No amount of keyword refinement closes that gap. The proximity map resolves it structurally: code overlap is derived from awarded contracts, weighted by inverse document frequency, and filtered by award magnitude.</p>
+</div>
+
+<div class="section">
+  <div class="section-title">Exclusions</div>
+  <p>Not captured: win rates, CO relationships, proposal quality, pricing strategy, backlog, or any non-public instrument. The FedComp Index score is a function of disclosed obligations only.</p>
+</div>
+
+</div>
+{% endblock %}

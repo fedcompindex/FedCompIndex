@@ -1,0 +1,206 @@
+{% extends "base.html" %}
+{% block title %}FAQ | FedComp Index{% endblock %}
+{% block description %}Frequently asked questions about the FedComp Index, posture classes, index drivers, proximity maps, and contractor dossiers.{% endblock %}
+
+{% set active = 'faq' %}
+{% set canonical = '/faq/' %}
+
+{% block structured_data %}
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "image": "{{ site_url }}/static/img/FedComp-Index-FAQ-Wide-1.png",
+  "mainEntity": [
+    {
+      "@type": "Question",
+      "name": "What is FedComp Index?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "An open-source competitive instrumentation system for federal contractors. Ingests five years of obligation data from USASpending.gov, joins against SAM.gov registrations, and produces a FedComp Index score (0-100), posture class (Class 1/2/3), proximity map, and public contractor dossier for every scored firm. Nevada is the initial coverage area."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "What is a posture class?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "A trichotomous classification of federal contractors by demonstrated award capacity. Class 1: score 60+ (approximately $100M+ in 5-year obligations). Class 2: score 40-59 ($5M-$100M). Class 3: below 40. Nascent or sub-threshold obligors. Thresholds are fixed and state-invariant. Posture class is orthogonal to SBA certifications and set-aside eligibility."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "How is the FedComp Index score calculated?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Composite of two index drivers: Award Volume (0.90 weight, log10 of total obligations over trailing 5-year window, mapped to 0-100) and Award Recency (0.10 weight, step function on last award date). Formula: (V x 0.90) + (R x 0.10), clamped to [0, 100]. Absolute scale, not percentile-ranked. Both drivers are decomposed on each contractor dossier page."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "What is the proximity map?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "A directed graph resolving the six contractors nearest in competitive topology. Edges weighted by shared NAICS and PSC codes from awarded contracts using inverse document frequency (1/n^2). Scale-filtered by (min/max)^2 of total award volumes. The graph is asymmetric: A appearing in B's proximity map does not guarantee the converse."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "What is a contractor dossier?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Public instrument readout for a single firm at fedcompindex.org/dossier/[name]/. Displays FedComp Index score, posture class, index driver decomposition, obligation history, proximity map, SBA certifications, and spectator count. Each dossier generates a posture card image that renders as the OG/meta preview when the URL is shared. URLs are permanent; data refreshes daily."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "How does FedComp Index differ from SAM.gov and USASpending?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "SAM.gov is a registration ledger. USASpending.gov is a transaction ledger. Neither scores, ranks, or resolves competitive adjacency. FedComp Index joins both and applies a scoring function and topological analysis that neither source provides."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "What is the Tabularium?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "The instrument archive of FedComp Index. Datasets on HuggingFace and Kaggle, scoring engine on PyPI, source code on GitHub. Named after the Roman Tabularium on the Capitoline Hill where tabulae publicae were deposited."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Where can I download the data?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "HuggingFace, Kaggle (CSV/Parquet), or pip install fedcomp-index-data. Key columns: fedcomp_index (0-100), posture_class (1/2/3), awards_5yr_total_usd, award_count, last_award_date, primary_naics. MIT licensed, updated monthly."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "How often does the data update?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Incremental obligation pulls Monday through Saturday. Full re-ingestion Sundays. A cardinality gate rejects any pull where contractor count drops more than 5% from prior run, restoring from last known-good snapshot. External mirrors (HuggingFace, Kaggle, PyPI) update monthly."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "How does the proximity map apply to FAR compliance?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "FAR Part 10 market research: the proximity map provides a volume-verified, code-weighted alternative to SAM.gov keyword search for identifying capable sources. FAR 19.702 subcontracting plans: filtering by certification and posture class produces a provenance-verified candidate set. Class 3 teaming: the proximity map exposes which Class 1 and Class 2 firms operate in the same NAICS corridor at asymmetric scale, identifying the teaming aperture for small business subcontractors."
+      }
+    }
+  ]
+}
+</script>
+{% endblock %}
+
+{% block content %}
+<div class="tab-hero">
+  <img src="/static/img/FedComp-Index-FAQ-Wide-1.png" alt="FedComp Index FAQ - canonical definitions" class="tab-hero-img">
+  <div class="tab-hero-overlay">
+    <h1 class="page-title">FAQ</h1>
+    <span class="muted">Frequently asked questions about the FedComp Index</span>
+  </div>
+</div>
+
+<div class="faq-list">
+
+  <div class="faq-item">
+    <h2 class="faq-q">What is FedComp Index?</h2>
+    <div class="faq-a">
+      <p>An open-source competitive instrumentation system for federal contractors. It ingests five years of obligation data from <a href="https://usaspending.gov">USASpending.gov</a>, joins it against <a href="https://sam.gov">SAM.gov</a> registration records, and produces a FedComp Index score (0–100), posture class assignment, proximity map, and public contractor dossier for every scored firm in a state.</p>
+      <p>Nevada is the initial coverage area with {{ stats.total }} scored contractors.</p>
+    </div>
+  </div>
+
+  <div class="faq-item">
+    <h2 class="faq-q">What is a posture class?</h2>
+    <div class="faq-a">
+      <p>A trichotomous classification derived from the FedComp Index score, partitioning contractors by demonstrated award capacity:</p>
+      <ul>
+        <li><strong>Posture Class 1</strong> - Score 60+. Approximately $100M+ in cumulative obligations over the trailing 5-year window.</li>
+        <li><strong>Posture Class 2</strong> - Score 40–59. Approximately $5M–$100M. Sustained mid-magnitude performers.</li>
+        <li><strong>Posture Class 3</strong> - Below 40. Nascent or sub-threshold obligors.</li>
+      </ul>
+      <p>Thresholds are fixed and state-invariant. Posture class is orthogonal to SBA certifications, set-aside eligibility, and firm size standards, all of which are population-dependent classifications that shift with regulatory revision rather than measuring demonstrated obligation capacity. Movement between classes occurs only when the underlying FedComp Index score crosses a boundary.</p>
+      <p>Posture class thresholds and scoring formula are specified on the <a href="/methodology/">methodology page</a>.</p>
+    </div>
+  </div>
+
+  <div class="faq-item">
+    <h2 class="faq-q">How is the FedComp Index score calculated?</h2>
+    <div class="faq-a">
+      <p>Composite of two index drivers. No normalization, no percentile ranking. The FedComp Index score is absolute: a contractor scoring 60 represents equivalent obligation magnitude regardless of jurisdiction.</p>
+      <p><strong>Award Volume (0.90 weight):</strong> log10 of total federal obligations over the trailing 5-year window, monotonic transform to [0, 100]. Reference points: $10K → 0, $1M → 33, $10M → 50, $100M → 67, $1B → 83.</p>
+      <p><strong>Award Recency (0.10 weight):</strong> temporal step function on last award date. 0–12 months = 100, 12–24 = 60, 24–36 = 30, 36–60 = 10. Position drift of up to 9 points as the recency bucket decays.</p>
+      <p>Composite: (V × 0.90) + (R × 0.10), clamped to [0, 100]. Full specification: fedcompindex.org/methodology.</p>
+    </div>
+  </div>
+
+  <div class="faq-item">
+    <h2 class="faq-q">What is the proximity map?</h2>
+    <div class="faq-a">
+      <p>A directed graph resolving the six contractors nearest in competitive topology. Edges weighted by shared NAICS and PSC codes from awarded contracts using inverse document frequency (1/n<sup>2</sup> where n = obligors holding that code). PSC codes carry 2× base weight. Scale-filtered by (min/max)<sup>2</sup> of total award volumes; scale-disjoint pairs converge to zero.</p>
+      <p>The proximity map is asymmetric. Contractor A appearing in B's competitive radius does not guarantee the converse. Firms with broad code coverage appear in many smaller firms' neighborhoods; their own proximity map contains only comparably diversified obligors.</p>
+      <p>Applied use cases for FAR compliance are described <a href="#far-compliance">below</a>.</p>
+    </div>
+  </div>
+
+  <div class="faq-item">
+    <h2 class="faq-q">What is a contractor dossier?</h2>
+    <div class="faq-a">
+      <p>The public instrument readout for a single firm, accessible at fedcompindex.org/dossier/[contractor-name]/ or via site search. Contents: FedComp Index score decomposed into constituent index drivers, full obligation history (dates, agencies, NAICS codes, obligated amounts), proximity map, SBA certifications, and spectator count.</p>
+      <p>Each contractor dossier generates a posture card: a single-image distillation of the firm's FedComp Index score, posture class, state rank, and cumulative obligation value. The posture card serves as the OG/meta image when the dossier URL is shared on LinkedIn, Slack, or X, and embeds in capability statements and teaming packages. Dossier URLs are permanent; data refreshes daily.</p>
+    </div>
+  </div>
+
+  <div class="faq-item">
+    <h2 class="faq-q">How does FedComp Index differ from SAM.gov and USASpending?</h2>
+    <div class="faq-a">
+      <p>SAM.gov is a registration ledger: entities and their self-reported attributes. USASpending.gov is a transaction ledger: obligations, recipients, instruments. Neither scores, ranks, or resolves competitive adjacency.</p>
+      <p>FedComp Index joins both ledgers and applies a scoring function and topological analysis that neither source provides. The underlying obligation data is identical to what any analyst can query from the public APIs. The instrument layer (FedComp Index score, posture class, proximity map, contractor dossier) is the differentiator.</p>
+    </div>
+  </div>
+
+  <div class="faq-item">
+    <h2 class="faq-q">What is the Tabularium?</h2>
+    <div class="faq-a">
+      <p>The <a href="/tabularium/">instrument archive</a> of FedComp Index: datasets on HuggingFace and Kaggle (CSV, Parquet), scoring engine on PyPI (<code>fedcomp-index-scoring</code>), pre-scored bundles (<code>fedcomp-index-data</code>), and source repository on GitHub. All artifacts MIT-licensed.</p>
+      <p>Named after the Roman Tabularium on the Capitoline Hill where <em>tabulae publicae</em> (public records and legal instruments) were deposited.</p>
+    </div>
+  </div>
+
+  <div class="faq-item">
+    <h2 class="faq-q">Where can I download the data?</h2>
+    <div class="faq-a">
+      <ul>
+        <li><a href="https://huggingface.co/datasets/npetro6/nevada-federal-contractors">HuggingFace - Nevada contractors</a></li>
+        <li><a href="https://www.kaggle.com/datasets/npetro6/nevada-federal-contractors-fedcomp-index">Kaggle - Nevada contractors</a></li>
+        <li>PyPI: <code>pip install fedcomp-index-data</code></li>
+      </ul>
+      <p>Key columns: <code>fedcomp_index</code> (0–100), <code>posture_class</code> (Class 1/2/3), <code>awards_5yr_total_usd</code>, <code>award_count</code>, <code>last_award_date</code>, <code>primary_naics</code>. MIT licensed. Updated monthly.</p>
+    </div>
+  </div>
+
+  <div class="faq-item">
+    <h2 class="faq-q">How often does the data update?</h2>
+    <div class="faq-a">
+      <p>Incremental obligation pulls from USASpending Monday through Saturday. Idempotent re-ingestion Sundays. FedComp Index scores recalculate and the site regenerates after each pull. External mirrors (HuggingFace, Kaggle, PyPI) update monthly.</p>
+      <p>A cardinality gate rejects any pull where the contractor count drops more than 5% from the prior run, restoring from the last known-good snapshot. Prevents silent data loss from upstream API faults.</p>
+    </div>
+  </div>
+
+  <div class="faq-item" id="far-compliance">
+    <h2 class="faq-q">How does the proximity map apply to FAR compliance?</h2>
+    <div class="faq-a">
+      <p><strong><a href="https://www.acquisition.gov/far/part-10">FAR Part 10</a> - Market Research.</strong> Contracting officers must identify capable sources before issuing solicitations. The proximity map provides a code-weighted, scale-filtered alternative to SAM.gov keyword search, surfacing firms by demonstrated obligation history under specific NAICS and PSC codes rather than self-reported registration claims.</p>
+      <p><strong><a href="https://www.acquisition.gov/far/19.702">FAR 19.702</a> - Subcontracting Plans.</strong> Prime contractors above the <a href="https://www.acquisition.gov/far/2.101">simplified acquisition threshold</a> must set goals for 8(a), HUBZone, WOSB, SDVOSB, and VOSB subcontractors. Filtering the proximity map by certification type and posture class produces a provenance-verified candidate set that keyword search cannot approximate.</p>
+      <p><strong>Posture Class 3 Teaming Strategy.</strong> The proximity map exposes which Posture Class 1 and Class 2 firms operate in the same NAICS corridor at 10×–100× scale. That magnitude asymmetry is the teaming aperture: those firms need small business subcontractors to satisfy FAR 19.702 goals, and the proximity map identifies the structural relationship.</p>
+    </div>
+  </div>
+
+</div>
+{% endblock %}

@@ -1,0 +1,93 @@
+{% extends "base.html" %}
+{% block title %}Tabularium - FedComp Index{% endblock %}
+{% block description %}Data, tools, and resources for the FedComp Index. Datasets, Python packages, and open source scoring infrastructure.{% endblock %}
+
+{% set active = 'tabularium' %}
+{% set canonical = '/tabularium/' %}
+
+{% block structured_data %}
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "DataCatalog",
+  "name": "FedComp Index Tabularium",
+  "description": "Data, tools, and open infrastructure for the FedComp Index. Datasets, Python packages, and scoring engine.",
+  "url": "{{ site_url }}/tabularium/",
+  "image": {
+    "@type": "ImageObject",
+    "url": "{{ site_url }}/static/img/FedComp-Index-Tabularium-Wide-1.png",
+    "name": "FedComp Index Tabularium",
+    "description": "Federal contractor data archive - FedComp Index Tabularium"
+  },
+  "creator": {"@type": "Organization", "name": "FedComp Index", "url": "{{ site_url }}/"},
+  "dataset": [
+    {
+      "@type": "Dataset",
+      "name": "Nevada Federal Contractors - FedComp Index",
+      "description": "Scored dataset of federal contractors in Nevada with FedComp Index scores and posture class assignments.",
+      "url": "https://huggingface.co/datasets/npetro6/nevada-federal-contractors",
+      "license": "https://opensource.org/licenses/MIT",
+      "creator": {"@type": "Organization", "name": "FedComp Index", "url": "{{ site_url }}/"},
+      "distribution": [
+        {"@type": "DataDownload", "encodingFormat": "text/csv"},
+        {"@type": "DataDownload", "encodingFormat": "application/x-parquet"}
+      ]
+    }
+  ]
+}
+</script>
+{% endblock %}
+
+{% block content %}
+<div class="tab-hero">
+  <img src="/static/img/FedComp-Index-Tabularium-Wide-1.png" alt="FedComp Index Tabularium - federal contractor data archive" class="tab-hero-img">
+  <div class="tab-hero-overlay">
+    <h1 class="page-title">Tabularium</h1>
+    <span class="muted">Data, tools, and open infrastructure for the FedComp Index</span>
+  </div>
+</div>
+
+<div class="tab-grid">
+
+  <div class="tab-section">
+    <div class="tab-section-title">Datasets</div>
+    <p class="muted" style="margin-bottom:16px;">Pre-scored contractor data with FedComp Index scores and posture class assignments. Updated monthly from USASpending award data.</p>
+    <div class="tab-links">
+      {% for item in datasets %}
+      <a href="{{ item.url }}" class="tab-link">
+        <span class="tab-link-label">{{ item.label }}</span>
+        <span class="muted" style="font-size:var(--sz-label);">{{ item.platform }}</span>
+      </a>
+      {% endfor %}
+    </div>
+  </div>
+
+  <div class="tab-section">
+    <div class="tab-section-title">Python packages</div>
+    <p class="muted" style="margin-bottom:16px;">Scoring engine and bundled data available via pip. Compute FedComp Index scores programmatically or load pre-scored datasets directly in Python.</p>
+    <div style="background:var(--bg);border:1px solid var(--border);border-radius:var(--r);padding:10px 14px;font-family:var(--font-mono);font-size:var(--sz-body);margin-bottom:16px;">pip install fedcomp-index</div>
+    <div class="tab-links">
+      {% for item in packages %}
+      <a href="{{ item.url }}" class="tab-link">
+        <span class="tab-link-label">{{ item.label }}</span>
+        <span class="muted" style="font-size:var(--sz-label);">{{ item.desc }}</span>
+      </a>
+      {% endfor %}
+    </div>
+  </div>
+
+  <div class="tab-section">
+    <div class="tab-section-title">Source</div>
+    <p class="muted" style="margin-bottom:16px;">All code, data pipelines, and site generation are open source. The scoring methodology is fully transparent and reproducible.</p>
+    <div class="tab-links">
+      {% for item in sources %}
+      <a href="{{ item.url }}" class="tab-link">
+        <span class="tab-link-label">{{ item.label }}</span>
+        <span class="muted" style="font-size:var(--sz-label);">{{ item.desc }}</span>
+      </a>
+      {% endfor %}
+    </div>
+  </div>
+
+</div>
+{% endblock %}

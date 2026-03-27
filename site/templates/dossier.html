@@ -1,0 +1,259 @@
+{% extends "base.html" %}
+
+{% block title %}{{ c.name }} | FedComp Index{% endblock %}
+{% block description %}FedComp competitive profile for {{ c.name }}, CAGE {{ c.cage }}. Score: {{ c.score }}/100. {{ c.posture_class }}.{% endblock %}
+
+{% block og_image %}{{ site_url }}/static/cards/{{ c.slug }}.jpg{% endblock %}
+{% block twitter_image %}{{ site_url }}/static/cards/{{ c.slug }}.jpg{% endblock %}
+{% set active = 'nv' %}
+{% set canonical = '/dossier/' + c.slug + '/' %}
+
+{% block structured_data %}
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "Organization",
+  "name": {{ c.name | tojson }},
+  "identifier": [
+    {"@type": "PropertyValue", "name": "CAGE", "value": {{ c.cage | tojson }}},
+    {"@type": "PropertyValue", "name": "UEI", "value": {{ (c.uei or '') | tojson }}},
+    {"@type": "PropertyValue", "name": "FedComp Index", "value": "{{ c.score }}"},
+    {"@type": "PropertyValue", "name": "Posture Class", "value": {{ c.posture_class | tojson }}}
+  ],
+  "url": "{{ site_url }}/dossier/{{ c.slug }}/",
+  "address": {
+    "@type": "PostalAddress",
+    "addressRegion": {{ c.state_name | tojson }}
+  }
+}
+</script>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "WebPage",
+  "name": "{{ c.name }} - FedComp Index Dossier",
+  "url": "{{ site_url }}/dossier/{{ c.slug }}/",
+  "dateModified": "{{ data_date }}",
+  "primaryImageOfPage": {
+    "@type": "ImageObject",
+    "contentUrl": "{{ site_url }}/static/cards/{{ c.slug }}.jpg",
+    "width": 1200,
+    "height": 630,
+    "caption": "{{ c.name }} FedComp Index Posture Card - Score {{ c.score }}/100, {{ c.posture_class }}, Rank #{{ c.rank }} of {{ c.total }} Nevada federal contractors"
+  },
+  "isPartOf": {"@type": "WebSite", "name": "FedComp Index", "url": "{{ site_url }}/"}
+}
+</script>
+{% endblock %}
+
+{% block content %}
+
+{# ── Hero ─────────────────────────────────────────────────────────── #}
+<div class="landing-card" style="margin-top:0;">
+  <div class="dossier-header">
+    <div class="dossier-header-left">
+      <div class="dossier-name">{{ c.name }}</div>
+      {% if c.certifications %}
+      <div class="tags" style="margin-top:10px;">
+        {% for cert in c.certifications %}<span class="tag">{{ cert }}</span>{% endfor %}
+      </div>
+      {% endif %}
+      <div class="dossier-ids">
+        <span class="label">CAGE</span>
+        <span class="dossier-id-val">{{ c.cage or '-' }}</span>
+        <span class="dossier-ids-sep"></span>
+        <span class="label">UEI</span>
+        <span class="dossier-id-val">{{ c.uei or '-' }}</span>
+      </div>
+    </div>
+    <div class="dossier-header-right">
+      <span class="label">FedComp Index</span>
+      <span class="index-num {{ c.score_class }}">{{ c.score }}</span>
+      <span class="tag" style="margin-top:4px;">{{ c.posture_class }}</span>
+    </div>
+  </div>
+
+  <div class="dossier-stat-bar">
+    <div class="dossier-stat-item" title="Awards won in the past 5 years">
+      <span class="label">Awards</span>
+      <span class="dossier-stat-val">{{ c.award_count }}</span>
+    </div>
+    <div class="dossier-stat-item" title="Total contract value in the past 5 years">
+      <span class="label">Total Value</span>
+      <span class="dossier-stat-val">${{ c.awards_5yr_m }}M</span>
+    </div>
+    <div class="dossier-stat-item">
+      <span class="label">Active</span>
+      <span class="dossier-stat-val">{{ c.active_contracts }}</span>
+    </div>
+    <div class="dossier-stat-item">
+      <span class="label">Last Award</span>
+      <span class="dossier-stat-val dossier-stat-val--sm">{{ c.last_award_date or '-' }}</span>
+    </div>
+    <div class="dossier-stat-item">
+      <span class="label">{{ c.state_slug | upper }} Rank</span>
+      <span class="dossier-stat-val dossier-stat-val--sm">#{{ c.rank }} <span class="muted" style="font-size:12px;">of {{ c.total }}</span></span>
+    </div>
+  </div>
+  </div>
+
+{% if c.summary %}
+<p class="muted" style="font-size:var(--sz-body);line-height:1.7;margin-top:20px;">{{ c.summary }}</p>
+{% endif %}
+
+{# ── Two-col: Drivers + Spectators ─────────────────────────────────── #}
+<div class="dossier-2col">
+  <div class="landing-card" style="margin-top:0;">
+    <div class="section-title">Index Drivers</div>
+    <table>
+      <thead>
+        <tr>
+          <th>Driver</th>
+          <th style="text-align:right;">Score</th>
+          <th style="text-align:right;">vs Avg</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for d in c.index_drivers %}
+        <tr>
+          <td>{{ d.name }}</td>
+          <td style="text-align:right;"><span class="badge {{ d.score_class }}">{{ d.score }}</span></td>
+          <td style="text-align:right;" class="muted">{{ d.vs_avg }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <div class="landing-card" style="margin-top:0;">
+    <div class="section-title" style="display:flex;align-items:baseline;justify-content:space-between;">
+      <span>Spectators</span>
+      <span id="spectator-total" style="font-family:var(--font-mono);font-size:var(--sz-body);font-weight:400;"></span>
+    </div>
+    <div id="spectator-feed" style="min-height:80px;max-height:160px;overflow-y:auto;scrollbar-width:thin;scrollbar-color:var(--border) transparent;">
+    </div>
+  </div>
+</div>
+
+{# ── Contract History ──────────────────────────────────────────────── #}
+<div class="landing-card">
+  <div class="section-title">Contract History</div>
+  {% if c.contracts %}
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th style="width:80px;">Date</th>
+          <th>Agency</th>
+          <th style="width:72px;">NAICS</th>
+          <th style="width:56px;">PSC</th>
+          <th style="text-align:right;width:120px;">Value</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for a in c.contracts %}
+        <tr>
+          <td class="muted" style="white-space:nowrap;font-family:var(--font-mono);font-size:var(--sz-label);">{{ a.date }}</td>
+          <td style="font-size:var(--sz-label);">{{ a.agency }}</td>
+          <td class="muted" style="font-size:var(--sz-label);font-family:var(--font-mono);">{{ a.naics }}</td>
+          <td class="muted" style="font-size:var(--sz-label);">{{ a.psc }}</td>
+          <td style="text-align:right;font-family:var(--font-mono);">${{ a.value_fmt }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div class="empty">No contract history on record.</div>
+  {% endif %}
+</div>
+
+{# ── Proximity Map ─────────────────────────────────────────────────── #}
+<div class="landing-card">
+  <div class="section-title">Proximity Map</div>
+  {% if c.proximity %}
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Contractor</th>
+          <th>Certs</th>
+          <th>NAICS</th>
+          <th style="text-align:right;">Score</th>
+          <th>Class</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for p in c.proximity %}
+        <tr>
+          <td><a href="/dossier/{{ p.slug }}/">{{ p.name }}</a></td>
+          <td style="font-size:var(--sz-label);">{% for cert in p.certifications %}<span class="tag" style="margin:1px 2px;">{{ cert }}</span>{% endfor %}</td>
+          <td class="muted" style="font-size:var(--sz-label);">{{ p.naics }}</td>
+          <td style="text-align:right;"><span class="badge {{ p.score_class }}">{{ p.score }}</span></td>
+          <td><span class="tag">{{ p.posture_class }}</span></td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div class="empty">No proximity data available.</div>
+  {% endif %}
+</div>
+
+<div class="muted" style="font-size:var(--sz-label);margin-top:24px;display:flex;gap:16px;flex-wrap:wrap;">
+  <a href="/{{ c.state_slug }}/rankings/">#{{ c.rank }} in {{ c.state_name }} Rankings</a>
+  <a href="/{{ c.state_slug }}/">{{ c.state_name }} Overview</a>
+  <a href="/methodology/">Methodology</a>
+  {% if ext_link %}<a href="{{ ext_link.url }}">{{ ext_link.text }}</a>{% endif %}
+  <a href="/static/cards/{{ c.slug }}.jpg" download="{{ c.name }} - FedComp Index Posture Card.jpg">Posture Card</a>
+</div>
+
+<script>
+(function() {
+  var id = {{ c.cage | tojson }};
+  var apiBase = {{ api_url | tojson }};
+  var apiLive = {{ 'true' if api_live else 'false' }};
+  var totalEl = document.getElementById('spectator-total');
+  var feedEl = document.getElementById('spectator-feed');
+
+  function relTime(ts) {
+    var diff = Math.floor((Date.now() - new Date(ts + 'Z')) / 1000);
+    if (diff < 60) return diff + 's ago';
+    if (diff < 3600) return Math.floor(diff/60) + 'm ago';
+    if (diff < 86400) return Math.floor(diff/3600) + 'h ago';
+    return Math.floor(diff/86400) + 'd ago';
+  }
+
+  function showEmpty() {
+    if (totalEl) totalEl.textContent = '0';
+    if (feedEl) feedEl.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;min-height:80px;"><span class="muted" style="font-size:var(--sz-label);">No spectators yet</span></div>';
+  }
+
+  if (!apiLive) { showEmpty(); return; }
+
+  fetch(apiBase + '/api/view/' + id, { method: 'POST' }).catch(function(){}).finally(loadViews);
+
+  function loadViews() {
+    fetch(apiBase + '/api/views/' + id)
+      .then(function(r){ return r.json(); })
+      .then(function(data) {
+        var views = data.views || 0;
+        if (totalEl) totalEl.textContent = views;
+
+        var recent = data.recent || [];
+        if (!recent.length) { showEmpty(); return; }
+
+        feedEl.innerHTML = recent.map(function(ts, i) {
+          var isFirst = i === 0;
+          return '<div style="display:flex;align-items:center;gap:10px;padding:8px 0;' + (i < recent.length - 1 ? 'border-bottom:1px solid var(--border);' : '') + '">'
+            + '<div style="width:6px;height:6px;border-radius:50%;background:' + (isFirst ? 'var(--success)' : 'var(--border)') + ';flex-shrink:0;"></div>'
+            + '<span style="font-size:var(--sz-label);color:' + (isFirst ? 'var(--text)' : 'var(--muted)') + ';">' + relTime(ts) + '</span>'
+            + '</div>';
+        }).join('');
+      }).catch(function(){ showEmpty(); });
+  }
+})();
+</script>
+
+{% endblock %}

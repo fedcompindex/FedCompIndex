@@ -1,0 +1,187 @@
+{% extends "base.html" %}
+
+{% block title %}FedComp Index | Federal Contractor Intelligence{% endblock %}
+{% block description %}FedComp Index ranks federal contractors by competitive positioning. Public data, absolute scoring. Starting with Nevada.{% endblock %}
+
+{% set canonical = '/' %}
+
+{% block structured_data %}
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "WebSite",
+  "name": "FedComp Index",
+  "url": "{{ site_url }}/",
+  "description": "Federal contractor competitive intelligence. Posture scoring for every federal contractor based on public award data.",
+  "potentialAction": {
+    "@type": "SearchAction",
+    "target": "{{ site_url }}/nv/rankings/?q={search_term_string}",
+    "query-input": "required name=search_term_string"
+  }
+}
+</script>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "Organization",
+  "name": "FedComp Index",
+  "url": "{{ site_url }}/",
+  "sameAs": [
+    "https://github.com/npetro6/FedCompIndex",
+    "https://huggingface.co/datasets/npetro6/nevada-federal-contractors",
+    "https://pypi.org/project/fedcomp-index/"
+  ]
+}
+</script>
+{% endblock %}
+
+{% block content %}
+<div class="home-hero">
+  <div class="home-hero-left">
+    <h1 class="home-headline">Federal Contractor Intelligence</h1>
+    <p class="home-sub">Competitive positioning scores for every federal contractor in the state. Built from USASpending award data.</p>
+  </div>
+  <div class="home-hero-stats">
+    <div class="home-stat">
+      <span class="home-stat-val">{{ stats.total }}</span>
+      <span class="label">Contractors Scored</span>
+    </div>
+    <div class="home-stat">
+      <span class="home-stat-val">{{ stats.total_volume }}</span>
+      <span class="label">Award Volume Tracked</span>
+    </div>
+  </div>
+</div>
+
+<div class="home-section">
+  <div class="section-title">States</div>
+  <div class="home-state-grid">
+    <a href="/nv/" class="home-state-card home-state-card--live">
+      <div class="home-state-top">
+        <span class="home-state-name">Nevada</span>
+        <span class="home-state-badge">Live</span>
+      </div>
+      <span class="home-state-meta">{{ stats.total }} contractors</span>
+      <div class="home-state-bar">
+        <div class="home-state-fill" style="width:100%;"></div>
+      </div>
+    </a>
+    <div class="home-state-card">
+      <div class="home-state-top">
+        <span class="home-state-name">Texas</span>
+      </div>
+      <span class="home-state-meta muted">Coming soon</span>
+      <div class="home-state-bar"><div class="home-state-fill" style="width:0%;"></div></div>
+    </div>
+    <div class="home-state-card">
+      <div class="home-state-top">
+        <span class="home-state-name">California</span>
+      </div>
+      <span class="home-state-meta muted">Coming soon</span>
+      <div class="home-state-bar"><div class="home-state-fill" style="width:0%;"></div></div>
+    </div>
+    <div class="home-state-card">
+      <div class="home-state-top">
+        <span class="home-state-name">Florida</span>
+      </div>
+      <span class="home-state-meta muted">Coming soon</span>
+      <div class="home-state-bar"><div class="home-state-fill" style="width:0%;"></div></div>
+    </div>
+    <div class="home-state-card">
+      <div class="home-state-top">
+        <span class="home-state-name">Arizona</span>
+      </div>
+      <span class="home-state-meta muted">Coming soon</span>
+      <div class="home-state-bar"><div class="home-state-fill" style="width:0%;"></div></div>
+    </div>
+  </div>
+</div>
+
+<div class="home-section">
+  <div class="section-title">How it works</div>
+  <div class="home-how-grid">
+    <div class="landing-card" style="margin-top:0;">
+      <span class="home-how-num">01</span>
+      <strong style="display:block;margin-top:8px;">Award data</strong>
+      <p class="muted" style="font-size:var(--sz-label);margin-top:6px;">Federal contracts from USASpending. Dollar amounts, agencies, NAICS, PSC. Past five years.</p>
+    </div>
+    <div class="landing-card" style="margin-top:0;">
+      <span class="home-how-num">02</span>
+      <strong style="display:block;margin-top:8px;">Absolute scoring</strong>
+      <p class="muted" style="font-size:var(--sz-label);margin-top:6px;">Log-scaled to 0-100. A $10M contractor and a $100M contractor get different scores. No percentiles.</p>
+    </div>
+    <div class="landing-card" style="margin-top:0;">
+      <span class="home-how-num">03</span>
+      <strong style="display:block;margin-top:8px;">Proximity map</strong>
+      <p class="muted" style="font-size:var(--sz-label);margin-top:6px;">Who you're competing against based on won awards. Weighted by code rarity and contract scale.</p>
+    </div>
+  </div>
+</div>
+
+<div class="home-waitlist">
+  <div class="home-waitlist-inner">
+    <div class="home-waitlist-text">
+      <div class="home-waitlist-label">Expanding to all 50 states</div>
+      <p class="muted">Get notified when your state goes live.</p>
+    </div>
+    <form id="waitlist-form" class="home-waitlist-form">
+      <input type="email" name="email" placeholder="you@company.com" required class="home-waitlist-input">
+      <select name="state" class="home-waitlist-select">
+        <option value="">State</option>
+        <option>Alabama</option><option>Alaska</option><option>Arizona</option><option>Arkansas</option>
+        <option>California</option><option>Colorado</option><option>Connecticut</option><option>Delaware</option>
+        <option>Florida</option><option>Georgia</option><option>Hawaii</option><option>Idaho</option>
+        <option>Illinois</option><option>Indiana</option><option>Iowa</option><option>Kansas</option>
+        <option>Kentucky</option><option>Louisiana</option><option>Maine</option><option>Maryland</option>
+        <option>Massachusetts</option><option>Michigan</option><option>Minnesota</option><option>Mississippi</option>
+        <option>Missouri</option><option>Montana</option><option>Nebraska</option><option>New Hampshire</option>
+        <option>New Jersey</option><option>New Mexico</option><option>New York</option><option>North Carolina</option>
+        <option>North Dakota</option><option>Ohio</option><option>Oklahoma</option><option>Oregon</option>
+        <option>Pennsylvania</option><option>Rhode Island</option><option>South Carolina</option><option>South Dakota</option>
+        <option>Tennessee</option><option>Texas</option><option>Utah</option><option>Vermont</option>
+        <option>Virginia</option><option>Washington</option><option>West Virginia</option><option>Wisconsin</option>
+        <option>Wyoming</option>
+      </select>
+      <button type="submit" class="home-waitlist-btn">Notify me</button>
+    </form>
+    <div id="waitlist-toast" class="home-waitlist-toast"></div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function() {
+  var form = document.getElementById('waitlist-form');
+  if (!form) return;
+  form.addEventListener('submit', function(e) {
+    e.preventDefault();
+    var btn = form.querySelector('.home-waitlist-btn');
+    var email = form.querySelector('[name=email]').value;
+    var state = form.querySelector('[name=state]').value;
+    btn.textContent = '...';
+    btn.disabled = true;
+    var toast = document.getElementById('waitlist-toast');
+    fetch('https://fedcomp-api.n-petrova.workers.dev/api/waitlist', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: email, state: state })
+    }).then(function() {
+      btn.textContent = 'Notify me';
+      btn.disabled = false;
+      form.querySelector('[name=email]').value = '';
+      form.querySelector('[name=state]').selectedIndex = 0;
+      toast.textContent = "You're on the list. We'll reach out when " + (state || 'your state') + ' goes live.';
+      toast.className = 'home-waitlist-toast home-waitlist-toast--show';
+      setTimeout(function() { toast.className = 'home-waitlist-toast'; }, 4000);
+    }).catch(function() {
+      toast.textContent = 'Something went wrong. Try again.';
+      toast.className = 'home-waitlist-toast home-waitlist-toast--show home-waitlist-toast--error';
+      btn.textContent = 'Notify me';
+      btn.disabled = false;
+      setTimeout(function() { toast.className = 'home-waitlist-toast'; }, 4000);
+    });
+  });
+})();
+</script>
+{% endblock %}
