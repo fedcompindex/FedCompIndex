@@ -55,7 +55,7 @@
 <script>
 (function() {
   var apiBase = {{ api_url | tojson }};
-  var cageIndex = null;
+  var ueiIndex = null;
 
   function relTime(ts) {
     var diff = Math.floor((Date.now() - new Date(ts + 'Z')) / 1000);
@@ -65,23 +65,23 @@
     return Math.floor(diff/86400) + 'd ago';
   }
 
-  function lookupCage(cage) {
-    if (!cageIndex) return { name: cage, slug: null };
-    var entry = cageIndex[cage];
-    if (!entry) return { name: cage, slug: null };
+  function lookupUei(uei) {
+    if (!ueiIndex) return { name: uei, slug: null };
+    var entry = ueiIndex[uei];
+    if (!entry) return { name: uei, slug: null };
     return entry;
   }
 
-  function renderName(cage) {
-    var c = lookupCage(cage);
+  function renderName(uei) {
+    var c = lookupUei(uei);
     if (c.slug) return '<a href="/dossier/' + c.slug + '/">' + c.name + '</a>';
-    return '<span class="muted">' + cage + '</span>';
+    return '<span class="muted">' + uei + '</span>';
   }
 
-  // Load cage->name index, then load feed
-  fetch('/static/cage_index.json')
+  // Load UEI->name index, then load feed
+  fetch('/static/uei_index.json')
     .then(function(r) { return r.json(); })
-    .then(function(data) { cageIndex = data; })
+    .then(function(data) { ueiIndex = data; })
     .catch(function() {})
     .finally(loadFeed);
 

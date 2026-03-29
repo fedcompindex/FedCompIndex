@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 
-{% block title %}{{ state_name }} Federal Contractors | FedComp Index{% endblock %}
-{% block description %}FedComp Index rankings for {{ state_name }} federal contractors. Ranked by competitive positioning score using SAM.gov, FPDS, and SBA data.{% endblock %}
+{% block title %}{{ state_name }} Federal Contractor Rankings | FedComp Index{% endblock %}
+{% block description %}FedComp Index rankings for {{ state_name }} federal contractors. Ranked by base contract volume using SAM.gov, USASpending.gov, and SBA data.{% endblock %}
 
 {% set active = state_code + '-rankings' %}
 {% set canonical = '/' + state_code + '/rankings/' %}
@@ -12,7 +12,7 @@
   "@context": "https://schema.org",
   "@type": "ItemList",
   "name": "{{ state_name }} Federal Contractor Rankings - FedComp Index",
-  "description": "Federal contractors in {{ state_name }} ranked by FedComp Index posture score.",
+  "description": "Federal contractors in {{ state_name }} ranked by base contract volume and Posture Class.",
   "url": "{{ site_url }}/{{ state_code }}/rankings/",
   "numberOfItems": {{ contractors | length }},
   "itemListOrder": "https://schema.org/ItemListOrderDescending"
@@ -25,20 +25,28 @@
 <div class="index-header">
   <div class="index-header-left">
     <h1 class="page-title">{{ state_name }}</h1>
-    <span class="muted">Federal contractor rankings by competitive positioning score</span>
+    <span class="muted">Federal contractor rankings by base contract volume</span>
   </div>
   <div class="stat-bar">
-    <div class="stat-bar-item" title="{{ state_name }} contractors with at least one award in the past 5 years">
-      <span class="label">Contractors</span>
+    <div class="stat-bar-item" title="{{ state_name }} contractors with at least one base contract in the past 5 years">
+      <span class="label">Classified</span>
       <span class="stat-bar-val">{{ stats.total }}</span>
-    </div>
-    <div class="stat-bar-item">
-      <span class="label">Avg Score</span>
-      <span class="stat-bar-val">{{ stats.avg_score }}</span>
     </div>
     <div class="stat-bar-item">
       <span class="label">Class 1</span>
       <span class="stat-bar-val">{{ stats.class_1_count }}</span>
+    </div>
+    <div class="stat-bar-item">
+      <span class="label">Class 2</span>
+      <span class="stat-bar-val">{{ stats.class_2_count }}</span>
+    </div>
+    <div class="stat-bar-item">
+      <span class="label">Class 3</span>
+      <span class="stat-bar-val">{{ stats.class_3_count }}</span>
+    </div>
+    <div class="stat-bar-item">
+      <span class="label">Class 4</span>
+      <span class="stat-bar-val">{{ stats.class_4_count }}</span>
     </div>
   </div>
 </div>
@@ -51,8 +59,8 @@
     <col style="width:48px;">
     <col>
     <col style="width:180px;">
-    <col style="width:72px;">
-    <col style="width:72px;">
+    <col style="width:100px;">
+    <col style="width:80px;">
     <col style="width:100px;">
     <col style="width:80px;">
   </colgroup>
@@ -61,9 +69,9 @@
       <th class="rank">#</th>
       <th class="sort" data-col="1">Contractor</th>
       <th title="Active SBA certifications">Certs</th>
-      <th class="sort" data-col="3" style="text-align:right;" title="FedComp Index score (0-100)">Score</th>
-      <th class="sort" data-col="4" style="text-align:right;" title="Total awards won (past 5 years)">Awards</th>
-      <th class="sort" data-col="5" style="text-align:right;" title="Total contract value (past 5 years)">Value</th>
+      <th class="sort" data-col="3" style="text-align:right;" title="Base contract dollars (past 5 years)">Volume</th>
+      <th class="sort" data-col="4" style="text-align:right;" title="Base contract count (past 5 years)">Contracts</th>
+      <th class="sort" data-col="5" style="text-align:right;" title="Dollars per base contract">OD</th>
       <th title="Posture Class">Class</th>
     </tr>
   </thead>
@@ -73,10 +81,10 @@
       <td class="rank">{{ loop.index }}</td>
       <td style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"><a href="/dossier/{{ c.slug }}/">{{ c.name }}</a></td>
       <td style="font-size:var(--sz-label);overflow:hidden;">{% for cert in c.certifications %}<span class="tag" style="margin:1px 2px;">{{ cert }}</span>{% endfor %}</td>
-      <td style="text-align:right;"><span class="badge {{ c.score_class }}">{{ c.score }}</span></td>
-      <td style="text-align:right;font-family:var(--font-mono);" class="muted">{{ c.award_count }}</td>
-      <td style="text-align:right;font-family:var(--font-mono);" class="muted">${{ c.awards_5yr_m }}M</td>
-      <td><span class="tag">{{ c.posture_class }}</span></td>
+      <td style="text-align:right;font-family:var(--font-mono);" class="muted">{{ c.base_dollars_5yr | fmt_dollars }}</td>
+      <td style="text-align:right;font-family:var(--font-mono);" class="muted">{{ c.base_contract_count }}</td>
+      <td style="text-align:right;font-family:var(--font-mono);" class="muted">{{ c.obligation_density | fmt_dollars }}</td>
+      <td><span class="tag {{ c.class_css }}">{{ c.posture_class }}</span></td>
     </tr>
     {% else %}
     <tr><td colspan="7"><div class="empty">No data loaded yet.</div></td></tr>
@@ -93,12 +101,11 @@
     <div class="rank-card-top">
       <span class="rank-card-rank">#{{ loop.index }}</span>
       <span class="rank-card-name">{{ c.name }}</span>
-      <span class="badge {{ c.score_class }}">{{ c.score }}</span>
+      <span class="tag {{ c.class_css }}">{{ c.posture_class }}</span>
     </div>
     <div class="rank-card-bottom">
-      <span class="muted">{{ c.award_count }} awards</span>
-      <span class="muted">${{ c.awards_5yr_m }}M</span>
-      <span class="tag">{{ c.posture_class }}</span>
+      <span class="muted">{{ c.base_dollars_5yr | fmt_dollars }}</span>
+      <span class="muted">{{ c.base_contract_count }} contracts</span>
       {% for cert in c.certifications %}<span class="tag">{{ cert }}</span>{% endfor %}
     </div>
   </a>

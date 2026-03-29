@@ -1,7 +1,14 @@
 .env
+CLAUDE.md
 __pycache__/
 *.pyc
+*.egg-info/
 site/dist/
 .wrangler/
 node_modules/
 *.log
+hide/
+datasets/
+pypi/
+brand/
+content/wiki/

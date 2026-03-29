@@ -9,7 +9,7 @@ database_id = "1be95b15-abca-4703-9dd2-887775e07505"
 
 [vars]
 ENVIRONMENT = "production"
-SITE_URL = "https://fedcompindex.com"
+SITE_URL = "https://fedcompindex.org"
 
 [dev]
 port = 8787

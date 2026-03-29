@@ -1,15 +1,14 @@
 """
-USASpending awards ingestion — Nevada
-Two pulls:
-  1. Recipient in Nevada  — contractor's own awards (goes on their Dossier)
-  2. Performed in Nevada  — work done in NV regardless of contractor origin
-                           (shows out-of-state competition, seeds stub pages)
+USASpending awards ingestion -- contractors based in a given state.
+
+Splits into yearly windows (all parallel), then recursively halves any
+window that hits the API's 10K result cap. Adapts to any data volume
+without code changes. Nevada needs 5 parallel year pulls. California
+might need sub-year splits. Handled automatically.
 
 Saves:
-  data/raw/usaspending_nv_recipient_raw.json
-  data/raw/usaspending_nv_performed_raw.json
-  data/nv_awards_recipient.json   — indexed by UEI
-  data/nv_awards_performed.json   — indexed by UEI (includes out-of-state)
+  data/raw/usaspending_{state}_recipient_raw.json
+  data/{state}_awards_recipient.json   -- indexed by UEI
 
 Usage:
     python ingest/usaspending.py --state NV
@@ -18,6 +17,7 @@ Usage:
 import json
 import time
 import argparse
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import date, datetime, timedelta
 from pathlib import Path
 
@@ -57,17 +57,17 @@ FIELDS = [
     "prime_award_recipient_id",
 ]
 
-# Default: 5 year range (overridden by --days flag for incremental mode)
 DEFAULT_YEARS = 5
-START_DATE = (date.today().replace(year=date.today().year - DEFAULT_YEARS)).strftime("%Y-%m-%d")
-END_DATE = date.today().strftime("%Y-%m-%d")
+BATCH_WORKERS = 10
+API_CAP = 9900
 
 
-def build_payload_recipient(state, page):
-    """Awards where the recipient is based in the state."""
+# --- Fetching infrastructure ---------------------------------------------------
+
+def _build_payload(state, page, start_date, end_date):
     return {
         "filters": {
-            "time_period": [{"start_date": START_DATE, "end_date": END_DATE}],
+            "time_period": [{"start_date": start_date, "end_date": end_date}],
             "award_type_codes": ["A", "B", "C", "D"],
             "recipient_locations": [{"country": "USA", "state": state}],
         },
@@ -80,79 +80,128 @@ def build_payload_recipient(state, page):
     }
 
 
-def build_payload_performed(state, page):
-    """Awards where the work was performed in the state."""
-    return {
-        "filters": {
-            "time_period": [{"start_date": START_DATE, "end_date": END_DATE}],
-            "award_type_codes": ["A", "B", "C", "D"],
-            "place_of_performance_locations": [{"country": "USA", "state": state}],
-        },
-        "fields": FIELDS,
-        "page": page,
-        "limit": 100,
-        "sort": "Award Amount",
-        "order": "desc",
-        "spending_level": "awards",
-    }
+def _fetch_page(state, page, start_date, end_date):
+    payload = _build_payload(state, page, start_date, end_date)
+    for attempt in range(3):
+        try:
+            resp = requests.post(USASPENDING_URL, json=payload, headers=HEADERS, timeout=60)
+            resp.raise_for_status()
+            return (page, resp.json())
+        except Exception as e:
+            if attempt < 2:
+                time.sleep(2 * (attempt + 1))
+    return (page, None)
 
 
-def fetch_awards(payload_fn, state, label):
-    all_raw = []
-    page = 1
-    total_seen = 0
+def _midpoint(start_str, end_str):
+    s = datetime.strptime(start_str, "%Y-%m-%d").date()
+    e = datetime.strptime(end_str, "%Y-%m-%d").date()
+    mid = s + (e - s) / 2
+    return mid.strftime("%Y-%m-%d")
 
-    print(f"Fetching USASpending awards ({label}) for {state}...")
 
-    max_retries = 3
+def _fetch_all_pages(state, start_date, end_date):
+    """Paginate through all results in a single window using parallel batches."""
+    _, first = _fetch_page(state, 1, start_date, end_date)
+    if not first or not first.get("results"):
+        return []
 
-    while True:
-        payload = payload_fn(state, page)
+    all_raw = list(first["results"])
+    if not first.get("page_metadata", {}).get("hasNext", False):
+        return all_raw
 
-        data = None
-        for attempt in range(max_retries):
-            try:
-                resp = requests.post(USASPENDING_URL, json=payload, headers=HEADERS, timeout=60)
-                resp.raise_for_status()
-                data = resp.json()
+    page = 2
+    with ThreadPoolExecutor(max_workers=BATCH_WORKERS) as pool:
+        while True:
+            batch_end = page + BATCH_WORKERS
+            futures = {
+                pool.submit(_fetch_page, state, p, start_date, end_date): p
+                for p in range(page, batch_end)
+            }
+
+            results = {}
+            for f in as_completed(futures):
+                p, data = f.result()
+                results[p] = data
+
+            stop = False
+            for p in range(page, batch_end):
+                data = results.get(p)
+                if not data:
+                    stop = True
+                    break
+                awards = data.get("results", [])
+                if not awards:
+                    stop = True
+                    break
+                all_raw.extend(awards)
+                if not data.get("page_metadata", {}).get("hasNext", False):
+                    stop = True
+                    break
+
+            if stop:
                 break
-            except Exception as e:
-                print(f"  Error on page {page} (attempt {attempt + 1}/{max_retries}): {e}")
-                if attempt < max_retries - 1:
-                    time.sleep(5 * (attempt + 1))
+            page = batch_end
 
-        if data is None:
-            print(f"  Failed page {page} after {max_retries} attempts, stopping.")
-            break
-
-        results = data.get("results", [])
-        if not results:
-            print(f"  No results on page {page}, stopping.")
-            break
-
-        all_raw.extend(results)
-        total_seen += len(results)
-
-        has_next = data.get("page_metadata", {}).get("hasNext", False)
-        print(f"  Page {page}: {len(results)} awards (total: {total_seen}, has_next: {has_next})")
-
-        # Checkpoint save
-        raw_path = RAW_DIR / f"usaspending_{state.lower()}_{label}_raw.json"
-        with open(raw_path, "w") as f:
-            json.dump(all_raw, f)
-
-        if not has_next:
-            break
-
-        page += 1
-        time.sleep(0.3)
-
-    print(f"Fetched {total_seen} total awards ({label}).")
     return all_raw
 
 
+def _fetch_window(state, start_date, end_date):
+    """
+    Fetch a single time window. If result count hits the API cap,
+    split in half and recurse both halves in parallel.
+    """
+    results = _fetch_all_pages(state, start_date, end_date)
+
+    if len(results) >= API_CAP:
+        mid = _midpoint(start_date, end_date)
+        if mid == start_date or mid == end_date:
+            print(f"  {start_date}: {len(results)} awards (single day, can't split)")
+            return results
+
+        print(f"  {start_date} to {end_date}: {len(results)} awards (CAPPED), splitting at {mid}")
+        with ThreadPoolExecutor(max_workers=2) as pool:
+            f1 = pool.submit(_fetch_window, state, start_date, mid)
+            f2 = pool.submit(_fetch_window, state, mid, end_date)
+            return f1.result() + f2.result()
+
+    print(f"  {start_date} to {end_date}: {len(results)} awards")
+    return results
+
+
+def fetch_awards(state, start_date, end_date):
+    """
+    Split into yearly windows, run all in parallel.
+    Each window self-splits if it hits the API cap.
+    """
+    s = datetime.strptime(start_date, "%Y-%m-%d").date()
+    e = datetime.strptime(end_date, "%Y-%m-%d").date()
+
+    # Build yearly windows
+    windows = []
+    cursor = s
+    while cursor < e:
+        window_end = min(date(cursor.year + 1, cursor.month, cursor.day), e)
+        windows.append((cursor.strftime("%Y-%m-%d"), window_end.strftime("%Y-%m-%d")))
+        cursor = window_end
+
+    print(f"  {len(windows)} yearly windows, all parallel")
+
+    with ThreadPoolExecutor(max_workers=len(windows)) as pool:
+        futures = [
+            pool.submit(_fetch_window, state, ws, we)
+            for ws, we in windows
+        ]
+        all_raw = []
+        for fut in futures:
+            all_raw.extend(fut.result())
+
+    return all_raw
+
+
+# --- Normalization -------------------------------------------------------------
+
 def _extract_code(field):
-    """NAICS and PSC fields may be dicts like {'code': '541512', 'description': '...'}"""
     if not field:
         return ""
     if isinstance(field, dict):
@@ -161,7 +210,6 @@ def _extract_code(field):
 
 
 def normalize_award(raw):
-    """Normalize a single award record."""
     amount = raw.get("Award Amount") or 0
     try:
         amount = float(amount)
@@ -171,7 +219,6 @@ def normalize_award(raw):
     start = raw.get("Start Date", "")
     end = raw.get("End Date", "")
 
-    # Recency weight: awards in last 12mo = 3x, 12-24mo = 2x, 24-36mo = 1.5x, older = 1x
     recency_weight = 1.0
     if start:
         try:
@@ -203,13 +250,13 @@ def normalize_award(raw):
         "end_date": end,
         "recipient_state": recipient_loc.get("state_code", ""),
         "performance_state": perf_loc.get("state_code", ""),
+        "award_type": raw.get("Contract Award Type", ""),
         "recency_weight": recency_weight,
         "weighted_amount": amount * recency_weight,
     }
 
 
 def index_by_uei(awards):
-    """Group normalized awards by UEI."""
     index = {}
     for a in awards:
         uei = a["uei"]
@@ -222,7 +269,6 @@ def index_by_uei(awards):
 
 
 def merge_awards(existing_indexed, new_indexed):
-    """Merge new awards into existing dataset by UEI. Deduplicates by award_id."""
     merged = dict(existing_indexed)
     for uei, new_awards in new_indexed.items():
         if uei not in merged:
@@ -235,70 +281,58 @@ def merge_awards(existing_indexed, new_indexed):
     return merged
 
 
+# --- Entry point ---------------------------------------------------------------
+
 def run(state, days=None):
     RAW_DIR.mkdir(parents=True, exist_ok=True)
     DATA_DIR.mkdir(parents=True, exist_ok=True)
 
+    end_date = date.today().strftime("%Y-%m-%d")
     if days:
         start_date = (date.today() - timedelta(days=days)).strftime("%Y-%m-%d")
-        print(f"Incremental mode: pulling last {days} days only")
+        print(f"Incremental mode: last {days} days")
     else:
-        start_date = (date.today().replace(year=date.today().year - DEFAULT_YEARS)).strftime("%Y-%m-%d")
+        start_date = date.today().replace(year=date.today().year - DEFAULT_YEARS).strftime("%Y-%m-%d")
 
-    # Override the start date in payload builders via closure
-    orig_recipient = build_payload_recipient
-    orig_performed = build_payload_performed
+    print(f"Fetching USASpending awards for {state} ({start_date} to {end_date})...")
+    all_raw = fetch_awards(state, start_date, end_date)
 
-    def patched_recipient(st, pg):
-        p = orig_recipient(st, pg)
-        p["filters"]["time_period"] = [{"start_date": start_date, "end_date": END_DATE}]
-        return p
+    # Deduplicate by Award ID (boundary dates can appear in both halves of a split)
+    seen = set()
+    deduped = []
+    for r in all_raw:
+        aid = r.get("Award ID", "")
+        if aid and aid not in seen:
+            seen.add(aid)
+            deduped.append(r)
+        elif not aid:
+            deduped.append(r)
 
-    def patched_performed(st, pg):
-        p = orig_performed(st, pg)
-        p["filters"]["time_period"] = [{"start_date": start_date, "end_date": END_DATE}]
-        return p
+    if len(all_raw) != len(deduped):
+        print(f"Deduplicated: {len(all_raw)} -> {len(deduped)}")
+    all_raw = deduped
 
-    # Pull 1: recipient in state
-    recipient_raw = fetch_awards(patched_recipient, state, "recipient")
+    print(f"Total: {len(all_raw)} unique awards")
+
+    # Save raw
     raw_path = RAW_DIR / f"usaspending_{state.lower()}_recipient_raw.json"
     with open(raw_path, "w") as f:
-        json.dump(recipient_raw, f, indent=2)
+        json.dump(all_raw, f, indent=2)
 
-    recipient_normalized = [normalize_award(r) for r in recipient_raw]
-    recipient_indexed = index_by_uei(recipient_normalized)
+    # Normalize + index
+    normalized = [normalize_award(r) for r in all_raw]
+    indexed = index_by_uei(normalized)
 
-    # If incremental, merge into existing data
     out_path = DATA_DIR / f"{state.lower()}_awards_recipient.json"
     if days and out_path.exists():
         with open(out_path) as f:
             existing = json.load(f)
-        recipient_indexed = merge_awards(existing, recipient_indexed)
-        print(f"Merged incremental data into existing recipient awards")
+        indexed = merge_awards(existing, indexed)
+        print(f"Merged incremental data into existing awards")
 
     with open(out_path, "w") as f:
-        json.dump(recipient_indexed, f, indent=2)
-    print(f"Recipient awards: {out_path} ({len(recipient_indexed)} unique contractors)")
-
-    # Pull 2: performed in state
-    performed_raw = fetch_awards(patched_performed, state, "performed")
-    raw_path = RAW_DIR / f"usaspending_{state.lower()}_performed_raw.json"
-    with open(raw_path, "w") as f:
-        json.dump(performed_raw, f, indent=2)
-
-    performed_normalized = [normalize_award(r) for r in performed_raw]
-    performed_indexed = index_by_uei(performed_normalized)
-
-    out_path = DATA_DIR / f"{state.lower()}_awards_performed.json"
-    if days and out_path.exists():
-        with open(out_path) as f:
-            existing = json.load(f)
-        performed_indexed = merge_awards(existing, performed_indexed)
-        print(f"Merged incremental data into existing performed awards")
-
-    with open(out_path, "w") as f:
-        json.dump(performed_indexed, f, indent=2)
-    print(f"Performed awards: {out_path} ({len(performed_indexed)} unique contractors)")
+        json.dump(indexed, f, indent=2)
+    print(f"Awards: {out_path} ({len(indexed)} unique contractors)")
 
     print(f"\nDone. Run next: python score/fedcomp_index.py --state {state}")
 
@@ -307,6 +341,6 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--state", default="NV")
     parser.add_argument("--days", type=int, default=None,
-                        help="Only pull last N days of awards (incremental mode)")
+                        help="Only pull last N days (incremental mode)")
     args = parser.parse_args()
     run(args.state, days=args.days)

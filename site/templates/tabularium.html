@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 {% block title %}Tabularium - FedComp Index{% endblock %}
-{% block description %}Data, tools, and resources for the FedComp Index. Datasets, Python packages, and open source scoring infrastructure.{% endblock %}
+{% block description %}Data, tools, and resources for the FedComp Index. Datasets, Python packages, and open source classification infrastructure.{% endblock %}
 
 {% set active = 'tabularium' %}
 {% set canonical = '/tabularium/' %}
@@ -11,7 +11,7 @@
   "@context": "https://schema.org",
   "@type": "DataCatalog",
   "name": "FedComp Index Tabularium",
-  "description": "Data, tools, and open infrastructure for the FedComp Index. Datasets, Python packages, and scoring engine.",
+  "description": "Data, tools, and open infrastructure for the FedComp Index. Datasets, Python packages, and classification engine.",
   "url": "{{ site_url }}/tabularium/",
   "image": {
     "@type": "ImageObject",
@@ -23,9 +23,9 @@
   "dataset": [
     {
       "@type": "Dataset",
-      "name": "Nevada Federal Contractors - FedComp Index",
-      "description": "Scored dataset of federal contractors in Nevada with FedComp Index scores and posture class assignments.",
-      "url": "https://huggingface.co/datasets/npetro6/nevada-federal-contractors",
+      "name": "FedComp Index Datasets",
+      "description": "Classified datasets of federal contractors with FedComp Index posture class assignments.",
+      "url": "https://huggingface.co/npetro6",
       "license": "https://opensource.org/licenses/MIT",
       "creator": {"@type": "Organization", "name": "FedComp Index", "url": "{{ site_url }}/"},
       "distribution": [
@@ -50,8 +50,8 @@
 <div class="tab-grid">
 
   <div class="tab-section">
-    <div class="tab-section-title">Datasets</div>
-    <p class="muted" style="margin-bottom:16px;">Pre-scored contractor data with FedComp Index scores and posture class assignments. Updated monthly from USASpending award data.</p>
+    <h2 class="tab-section-title">Datasets</h2>
+    <p class="muted" style="margin-bottom:16px;">Pre-scored contractor data with FedComp Index posture class assignments. Updated monthly from USASpending award data.</p>
     <div class="tab-links">
       {% for item in datasets %}
       <a href="{{ item.url }}" class="tab-link">
@@ -63,9 +63,10 @@
   </div>
 
   <div class="tab-section">
-    <div class="tab-section-title">Python packages</div>
-    <p class="muted" style="margin-bottom:16px;">Scoring engine and bundled data available via pip. Compute FedComp Index scores programmatically or load pre-scored datasets directly in Python.</p>
-    <div style="background:var(--bg);border:1px solid var(--border);border-radius:var(--r);padding:10px 14px;font-family:var(--font-mono);font-size:var(--sz-body);margin-bottom:16px;">pip install fedcomp-index</div>
+    <h2 class="tab-section-title">Packages</h2>
+    <p class="muted" style="margin-bottom:16px;">Classification engine and bundled data available via pip and npm. Compute FedComp Index classifications programmatically or load pre-scored datasets directly.</p>
+    <div style="background:var(--bg);border:1px solid var(--border);border-radius:var(--r);padding:10px 14px;font-family:var(--font-mono);font-size:var(--sz-body);margin-bottom:8px;">pip install fedcomp-index</div>
+    <div style="background:var(--bg);border:1px solid var(--border);border-radius:var(--r);padding:10px 14px;font-family:var(--font-mono);font-size:var(--sz-body);margin-bottom:16px;">npm install fedcomp-index</div>
     <div class="tab-links">
       {% for item in packages %}
       <a href="{{ item.url }}" class="tab-link">
@@ -77,8 +78,8 @@
   </div>
 
   <div class="tab-section">
-    <div class="tab-section-title">Source</div>
-    <p class="muted" style="margin-bottom:16px;">All code, data pipelines, and site generation are open source. The scoring methodology is fully transparent and reproducible.</p>
+    <h2 class="tab-section-title">Source</h2>
+    <p class="muted" style="margin-bottom:16px;">All code, data pipelines, and site generation are open source. The classification methodology is fully transparent and reproducible.</p>
     <div class="tab-links">
       {% for item in sources %}
       <a href="{{ item.url }}" class="tab-link">

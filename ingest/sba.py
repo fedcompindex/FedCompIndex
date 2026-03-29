@@ -102,7 +102,6 @@ def normalize_entity(raw):
 
     return {
         "uei": raw.get("uei", ""),
-        "cage": raw.get("cage_code", ""),
         "name": raw.get("legal_business_name", raw.get("dba_name", "")),
         "dba": raw.get("dba_name", ""),
         "state": raw.get("state", ""),
@@ -183,7 +182,6 @@ def run(state):
             seen_ueis.add(uei)
             normalized.append(entity)
         elif not uei:
-            # Keep entities without UEI — join on CAGE later
             normalized.append(entity)
 
     out_path = DATA_DIR / f"{state.lower()}_entities.json"

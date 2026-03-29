@@ -1,7 +1,8 @@
 """
-FedComp Index scoring algorithm
-Joins SBA entities + USASpending awards, computes 4 Index Drivers,
-builds Proximity Maps, outputs scored contractor records.
+FedComp Index v1.1 scoring algorithm
+Joins SBA entities + USASpending awards, classifies contractors into 4 Posture
+Classes using two-axis thresholds (volume x frequency on base contracts only),
+builds Proximity Maps, outputs classified contractor records.
 
 Usage:
     python score/fedcomp_index.py --state NV
@@ -18,9 +19,10 @@ from collections import defaultdict
 BASE_DIR = Path(__file__).parent.parent
 DATA_DIR = BASE_DIR / "data"
 
-# ─── Weights ──────────────────────────────────────────────────────────────────
-W_AWARD_VOLUME   = 0.90  # Log-scaled total $ won - dominant signal
-W_AWARD_RECENCY  = 0.10  # Last award recency bucket - still in the game?
+# ─── Classification Thresholds ────────────────────────────────────────────────
+BASE_TYPES = {"DEFINITIVE CONTRACT", "PURCHASE ORDER", "BPA CALL"}
+VOL_THRESHOLD  = 5_000_000   # $5M in base contract dollars over 5 years
+FREQ_THRESHOLD = 3            # 3 distinct base contracts over 5 years
 
 TODAY = date.today()
 
@@ -35,48 +37,36 @@ def slugify(name):
 
 def assign_classes(scored):
     """
-    Score-based classes. Fixed thresholds.
-    Class 1: 60+ (good), Class 2: 40-59 (warn), Class 3: <40 (bad).
+    Two-axis classification: volume x frequency.
+    Class 1: high vol + high freq (systematic winners)
+    Class 2: high vol + low freq (concentrated risk)
+    Class 3: low vol + high freq (growth pipeline)
+    Class 4: low vol + low freq (entry level)
     """
     for r in scored:
-        score = r["score"]
-        if score >= 60:
+        bd = r.get("base_dollars_5yr", 0)
+        bc = r.get("base_contract_count", 0)
+        high_vol = bd >= VOL_THRESHOLD
+        high_freq = bc >= FREQ_THRESHOLD
+        if high_vol and high_freq:
             r["posture_class"] = "Class 1"
-        elif score >= 40:
+        elif high_vol and not high_freq:
             r["posture_class"] = "Class 2"
-        else:
+        elif not high_vol and high_freq:
             r["posture_class"] = "Class 3"
+        else:
+            r["posture_class"] = "Class 4"
 
 
-def score_class_css(score):
-    if score >= 60: return "good"
-    if score >= 40: return "warn"
-    return "bad"
+CLASS_CSS = {
+    "Class 1": "class-1",
+    "Class 2": "class-2",
+    "Class 3": "class-3",
+    "Class 4": "class-4",
+}
 
-
-def percentile_normalize(value, all_values, zero_floor=None):
-    """
-    Normalize a value to 0-100 based on its percentile in the distribution.
-    zero_floor: if set, any value <= 0 gets this score instead of percentile rank.
-    This prevents zero-award contractors from scoring mid-range just because
-    most others also have zero awards.
-    """
-    if not all_values:
-        return 50
-    if zero_floor is not None and value <= 0:
-        return zero_floor
-    # Only normalize against non-zero values when zero_floor is set
-    compare_vals = [v for v in all_values if v > 0] if zero_floor is not None else all_values
-    if not compare_vals:
-        return zero_floor if zero_floor is not None else 0
-    sorted_vals = sorted(compare_vals)
-    n = len(sorted_vals)
-    rank = sum(1 for v in sorted_vals if v <= value)
-    # Scale to zero_floor+1 .. 100 range when zero_floor is set
-    if zero_floor is not None:
-        base = zero_floor + 1
-        return round(base + (rank / n) * (100 - base))
-    return round((rank / n) * 100)
+def posture_class_css(posture_class):
+    return CLASS_CSS.get(posture_class, "class-4")
 
 
 def days_until(date_str):
@@ -87,102 +77,6 @@ def days_until(date_str):
         return (d - TODAY).days
     except Exception:
         return None
-
-
-# ─── Driver functions ─────────────────────────────────────────────────────────
-
-LOG_MIN = 4   # log10($10K)
-LOG_MAX = 10  # log10($10B)
-
-def driver_award_volume(awards):
-    """
-    Log10-scaled total award amount, mapped directly to 0-100.
-    $10K -> 0, $1M -> 33, $10M -> 50, $100M -> 67, $1B -> 83, $10B -> 100.
-    Not percentile-normalized - a $1B contractor always outscores a $10M one.
-    """
-    if not awards:
-        return 0
-    total = sum(a.get("amount", 0) or 0 for a in awards)
-    if total <= 0:
-        return 0
-    log_val = math.log10(total)
-    return max(0, min(100, round((log_val - LOG_MIN) / (LOG_MAX - LOG_MIN) * 100)))
-
-
-def driver_award_recency(awards):
-    """
-    Bucketed recency of last award. Stable - doesn't decay daily.
-    Rewards contractors still actively winning. Doesn't penalize large-contract model.
-    Won past 12 months: 100, 1-2yr: 60, 2-3yr: 30, 3-5yr: 10.
-    """
-    if not awards:
-        return 0
-    dates = [a.get("start_date", "") for a in awards if a.get("start_date")]
-    if not dates:
-        return 0
-    days_ago = (TODAY - datetime.strptime(max(dates)[:10], "%Y-%m-%d").date()).days
-    if days_ago <= 365:
-        return 100
-    elif days_ago <= 730:
-        return 60
-    elif days_ago <= 1095:
-        return 30
-    else:
-        return 10
-
-
-def driver_cert_profile(entity):
-    """
-    Certification strength: formal SBA certs + registration currency.
-    Formal certs: 0-5+ (WOSB, 8(a), HUBZone, VOSB, SDVOSB, etc.)
-    Currency: SAM active + no expiring certs
-    """
-    score = 0
-    # Formal certs - each one is a genuine credential
-    formal = entity.get("cert_count", 0)
-    score += formal * 20  # 20 pts per cert, max 5 = 100
-
-    # SAM active baseline
-    if entity.get("sam_active"):
-        score += 10
-
-    # Registration health
-    expiry = entity.get("earliest_cert_expiry")
-    if expiry:
-        days = days_until(expiry)
-        if days is not None:
-            if days > 365:
-                score += 10
-            elif days > 90:
-                score += 5
-            elif days < 0:
-                score -= 20  # Expired cert is a liability
-
-    return max(0, score)
-
-
-def driver_posture(entity, awards):
-    """
-    Profile completeness + cert/award activity signal.
-    Internal AFPR boundary score wrapper.
-    """
-    score = 0
-
-    # Profile completeness (0-100 from sba.py)
-    score += entity.get("profile_completeness", 0) * 0.5  # max 50
-
-    # Cert + recent award activity
-    has_cert = entity.get("cert_count", 0) > 0 or entity.get("self_cert_count", 0) > 0
-    has_recent = any(a.get("recency_weight", 1.0) >= 2.0 for a in awards)
-
-    if has_cert and has_recent:
-        score += 50
-    elif has_cert:
-        score += 25
-    elif has_recent:
-        score += 20
-
-    return min(100, score)
 
 
 # ─── Proximity Map ────────────────────────────────────────────────────────────
@@ -212,7 +106,7 @@ def build_proximity_map(target_uei, target_record, naics_idx, psc_idx, uei_map, 
     if not target_naics and not target_pscs:
         return []
 
-    target_vol = target_record.get("awards_5yr_m", 0) * 1e6
+    target_vol = target_record.get("base_dollars_5yr", 0)
 
     # Inverse frequency squared: rare codes explode in value (convex)
     candidates = defaultdict(float)
@@ -234,7 +128,7 @@ def build_proximity_map(target_uei, target_record, naics_idx, psc_idx, uei_map, 
     for uei, overlap_score in candidates.items():
         if overlap_score <= 0:
             continue
-        cand_vol = uei_map.get(uei, {}).get("awards_5yr_m", 0) * 1e6
+        cand_vol = uei_map.get(uei, {}).get("base_dollars_5yr", 0)
         if target_vol > 0 and cand_vol > 0:
             ratio = min(target_vol, cand_vol) / max(target_vol, cand_vol)
             score = overlap_score * (ratio ** 2)
@@ -249,11 +143,10 @@ def build_proximity_map(target_uei, target_record, naics_idx, psc_idx, uei_map, 
         {
             "slug": uei_map[uei]["slug"],
             "name": uei_map[uei]["name"],
-            "naics": uei_map[uei]["naics_primary"],
+            "base_dollars_5yr": uei_map[uei]["base_dollars_5yr"],
             "certifications": uei_map[uei].get("certifications", []),
-            "score": uei_map[uei]["score"],
             "posture_class": uei_map[uei]["posture_class"],
-            "score_class": score_class_css(uei_map[uei]["score"]),
+            "class_css": posture_class_css(uei_map[uei]["posture_class"]),
         }
         for _, uei in top
     ]
@@ -261,29 +154,44 @@ def build_proximity_map(target_uei, target_record, naics_idx, psc_idx, uei_map, 
 
 # ─── Main scoring ─────────────────────────────────────────────────────────────
 
-def score_all(entities, recipient_index, performed_index, state_code="NV", state_name="Nevada"):
+def _fmt_dollars(amount):
+    """Format dollar amount for display."""
+    if amount >= 1_000_000_000:
+        return f"${amount / 1_000_000_000:.1f}B"
+    if amount >= 1_000_000:
+        return f"${amount / 1_000_000:.1f}M"
+    if amount >= 1_000:
+        return f"${amount / 1_000:.0f}K"
+    return f"${amount:,.0f}"
+
+
+def score_all(recipient_index, entities=None, state_code="NV", state_name="Nevada"):
     """
-    Score all entities. Two passes:
-    Pass 1: compute raw driver values
-    Pass 2: normalize all drivers against the full distribution, compute final scores
+    Score all contractors found in awards data. SBA entities enrich, not gate.
+    Base contracts only for classification. All awards for NAICS/PSC proximity.
     """
 
-    print(f"Scoring {len(entities)} entities...")
+    # Build entity lookup for enrichment (optional)
+    entity_by_uei = {}
+    if entities:
+        for e in entities:
+            uei = e.get("uei", "")
+            if uei:
+                entity_by_uei[uei] = e
 
-    # ─── Pass 1: raw values ───────────────────────────────────────────────────
-    raw_records = []
+    print(f"Scoring {len(recipient_index)} contractors ({len(entity_by_uei)} with SBA enrichment)...")
+
+    scored = []
     cutoff = date.today().replace(year=date.today().year - 5)
 
-    for entity in entities:
-        uei = entity.get("uei", "")
-        cage = entity.get("cage", "")
+    for uei, awards in recipient_index.items():
+        if not uei:
+            continue
 
-        # Join awards by UEI
-        awards = recipient_index.get(uei, [])
+        # SBA enrichment (optional)
+        entity = entity_by_uei.get(uei, {})
 
-        # Only count awards with start_date within the past 5 years for scoring.
-        # USASpending filters on action date (modifications) but returns original
-        # start_date, so old contracts with recent modifications can slip through.
+        # Only count awards with start_date within the past 5 years
         def _in_window(a):
             sd = a.get("start_date", "")
             if not sd:
@@ -295,42 +203,22 @@ def score_all(entities, recipient_index, performed_index, state_code="NV", state
 
         scored_awards = [a for a in awards if _in_window(a)]
 
-        # Validated NAICS and PSC from actual scored awards
+        # Base contract filtering
+        base_awards = [a for a in scored_awards if a.get("award_type", "") in BASE_TYPES]
+        base_contract_count = len(base_awards)
+        base_dollars = sum(a.get("amount", 0) for a in base_awards)
+
+        if base_contract_count == 0 or base_dollars <= 1000:
+            continue
+
+        # NAICS/PSC from ALL awards (including delivery orders)
         validated_naics = list(set(a["naics"] for a in scored_awards if a.get("naics")))
         validated_pscs = list(set(a["psc"] for a in scored_awards if a.get("psc")))
 
-        raw_records.append({
-            "entity": entity,
-            "awards": awards,           # full list for display
-            "scored_awards": scored_awards,  # 5yr window for scoring
-            "uei": uei,
-            "validated_naics": validated_naics,
-            "validated_pscs": validated_pscs,
-            "raw_volume":  driver_award_volume(scored_awards),
-            "raw_recency": driver_award_recency(scored_awards),
-        })
-
-    # ─── Pass 2: normalize and compute final scores ───────────────────────────
-
-    all_volume  = [r["raw_volume"]  for r in raw_records]
-    all_recency = [r["raw_recency"] for r in raw_records]
-
-    scored = []
-
-    for r in raw_records:
-        entity = r["entity"]
-        awards = r["awards"]
-        scored_awards = r["scored_awards"]
-
-        d1 = r["raw_volume"]   # already 0-100, no normalization
-        d2 = r["raw_recency"]  # already 0-100, no normalization
-
-        raw_score = (
-            d1 * W_AWARD_VOLUME +
-            d2 * W_AWARD_RECENCY
-        )
-
-        final_score = min(100, max(0, round(raw_score)))
+        # Compute metrics
+        obligation_density = base_dollars / base_contract_count
+        log_volume = math.log10(base_dollars) if base_dollars > 0 else 0
+        log_frequency = math.log10(base_contract_count) if base_contract_count > 0 else 0
 
         # Format awards for display
         contracts_display = [
@@ -344,9 +232,6 @@ def score_all(entities, recipient_index, performed_index, state_code="NV", state
             for a in sorted(awards, key=lambda x: x.get("start_date", ""), reverse=True)[:20]
         ]
 
-        total_awards_m = round(sum(a.get("amount", 0) for a in scored_awards) / 1_000_000, 1)
-        award_count = len(scored_awards)
-
         active_contracts = sum(
             1 for a in scored_awards
             if a.get("end_date") and days_until(a["end_date"]) and days_until(a["end_date"]) > 0
@@ -358,62 +243,66 @@ def score_all(entities, recipient_index, performed_index, state_code="NV", state
             if sorted_awards[0].get("start_date"):
                 last_award_date = sorted_awards[0]["start_date"][:7]
 
-        name = entity.get("name") or entity.get("dba") or "Unknown"
+        # Name: SBA entity name > most common award recipient name
+        name = entity.get("name") or entity.get("dba") or ""
+        if not name:
+            names = [a.get("recipient_name", "") for a in awards if a.get("recipient_name")]
+            name = max(set(names), key=names.count) if names else "Unknown"
+
+        # NAICS primary: SBA > most common from awards
+        naics_primary = entity.get("naics_primary", "")
+        if not naics_primary and validated_naics:
+            all_naics = [a.get("naics", "") for a in scored_awards if a.get("naics")]
+            naics_primary = max(set(all_naics), key=all_naics.count) if all_naics else ""
 
         record = {
             # Identity
             "slug": slugify(name),
             "name": name,
-            "uei": r["uei"],
-            "cage": entity.get("cage", ""),
-            "naics_primary": entity.get("naics_primary", ""),
-            "naics_codes": entity.get("naics_all", [])[:6],
+            "uei": uei,
+            "naics_primary": naics_primary,
+            "naics_codes": entity.get("naics_all", validated_naics)[:6],
             "certifications": entity.get("active_certs", []),
             "state_name": state_name,
             "state_slug": state_code.lower(),
 
-            # Score
-            "score": final_score,
-            "score_class": score_class_css(final_score),
+            # Classification (v1.1)
             "posture_class": "",  # assigned after sort
+            "base_dollars_5yr": float(base_dollars),
+            "base_contract_count": base_contract_count,
+            "obligation_density": float(obligation_density),
+            "log_volume": round(log_volume, 3),
+            "log_frequency": round(log_frequency, 3),
 
-            # Awards
-            "awards_5yr_m": total_awards_m,
-            "award_count": award_count,
+            # Awards (all, including delivery orders, for reference)
+            "award_count": len(scored_awards),
             "active_contracts": active_contracts,
             "last_award_date": last_award_date,
             "contracts": contracts_display,
 
             # Index Drivers (for display)
             "index_drivers": [
-                {"name": "Award Volume",  "score": d1, "vs_avg": _vs_avg(d1)},
-                {"name": "Award Recency", "score": d2, "vs_avg": _vs_avg(d2)},
+                {"name": "Award Volume", "value": _fmt_dollars(base_dollars), "log": round(log_volume, 2)},
+                {"name": "Award Frequency", "value": f"{base_contract_count} base contracts", "log": round(log_frequency, 2)},
+                {"name": "Obligation Density", "value": _fmt_dollars(obligation_density)},
             ],
 
             # Proximity (built in second pass)
             "proximity": [],
 
-            # Internal - used for proximity map, stripped before final output
-            "_validated_naics": r["validated_naics"],
-            "_validated_pscs": r["validated_pscs"],
+            # Internal
+            "_validated_naics": validated_naics,
+            "_validated_pscs": validated_pscs,
 
             # Display
             "rank": 0,
-            "total": 0,  # set after filtering
+            "total": 0,
         }
-
-        # Add score_class to each index driver
-        for d in record["index_drivers"]:
-            d["score_class"] = score_class_css(d["score"])
-
-        # Skip contractors with no awards or negligible volume (<$1K)
-        if record["award_count"] == 0 or record["awards_5yr_m"] < 0.001:
-            continue
 
         scored.append(record)
 
-    # Sort by score descending
-    scored.sort(key=lambda x: x["score"], reverse=True)
+    # Sort by base_dollars descending
+    scored.sort(key=lambda x: x["base_dollars_5yr"], reverse=True)
 
     # Resolve slug collisions - append suffix to duplicates
     slug_counts = {}
@@ -439,6 +328,188 @@ def score_all(entities, recipient_index, performed_index, state_code="NV", state
     for record in scored:
         record["proximity"] = build_proximity_map(record["uei"], record, naics_idx, psc_idx, uei_map)
 
+    # ─── Velocity (cadence-based) ───────────────────────────────────
+    print("Computing velocity vectors...")
+    midpoint = date.today().replace(year=date.today().year - 2)
+    _today = date.today()
+    _cutoff = _today.replace(year=_today.year - 5)
+    for r in scored:
+        uei = r["uei"]
+        all_awards = recipient_index.get(uei, [])
+        base = [a for a in all_awards if a.get("award_type", "") in BASE_TYPES]
+
+        # Collect award dates in window
+        award_dates = []
+        early_vol = 0; late_vol = 0; early_freq = 0; late_freq = 0
+        for a in base:
+            sd = a.get("start_date", "")
+            if not sd:
+                continue
+            try:
+                d = datetime.strptime(sd[:10], "%Y-%m-%d").date()
+            except Exception:
+                continue
+            if d < _cutoff:
+                continue
+            award_dates.append(d)
+            amt = a.get("amount", 0) or 0
+            if d < midpoint:
+                early_vol += amt; early_freq += 1
+            else:
+                late_vol += amt; late_freq += 1
+
+        # Fixed-split velocity (for aggregate stats / charts)
+        dv = math.log10(max(late_vol, 1)) - math.log10(max(early_vol, 1))
+        df = math.log10(max(late_freq, 1)) - math.log10(max(early_freq, 1))
+        mag = math.sqrt(dv ** 2 + df ** 2)
+
+        agg_direction = "stable"
+        if mag > 0.3:
+            if dv > 0 and df > 0:
+                agg_direction = "growing"
+            elif dv < 0 and df < 0:
+                agg_direction = "declining"
+            elif dv > 0:
+                agg_direction = "concentrating"
+            elif df > 0:
+                agg_direction = "diversifying"
+
+        # Single-contract: no meaningful aggregate direction
+        if len(award_dates) <= 1:
+            agg_direction = None
+            mag = 0
+            dv = 0
+            df = 0
+
+        # Cadence-based velocity (for individual dossier, requires 2+ contracts)
+        award_dates.sort()
+        if len(award_dates) <= 1:
+            cadence_direction = None  # no velocity for single-contract
+        else:
+            avg_gap = (award_dates[-1] - award_dates[0]).days / (len(award_dates) - 1)
+            if avg_gap == 0:
+                avg_gap = 1
+            days_since = (_today - award_dates[-1]).days
+            gap_ratio = days_since / avg_gap
+
+            mid_idx = len(award_dates) // 2
+            if mid_idx > 0 and mid_idx < len(award_dates) - 1:
+                early_gap = (award_dates[mid_idx] - award_dates[0]).days / mid_idx
+                late_gap = (award_dates[-1] - award_dates[mid_idx]).days / (len(award_dates) - mid_idx - 1)
+                pace_ratio = late_gap / early_gap if early_gap > 0 else 1.0
+            else:
+                pace_ratio = 1.0
+
+            if gap_ratio > 5:
+                cadence_direction = "inactive"
+            elif pace_ratio < 0.7 and gap_ratio < 2:
+                cadence_direction = "accelerating"
+            elif gap_ratio < 2 and pace_ratio < 1.5:
+                cadence_direction = "on pace"
+            elif gap_ratio < 4 or pace_ratio < 2.5:
+                cadence_direction = "slowing"
+            else:
+                cadence_direction = "declining"
+
+        r["velocity"] = {
+            "dv": round(dv, 3), "df": round(df, 3), "magnitude": round(mag, 3),
+            "direction": agg_direction,
+            "cadence": cadence_direction,
+        }
+
+
+    # ─── Competitive Density ─────────────────────────────────────────
+    print("Computing competitive density...")
+    slug_map = {r["slug"]: r for r in scored}
+    for r in scored:
+        neighbors = r.get("proximity", [])
+        if len(neighbors) < 2:
+            r["neighborhood_density"] = 0.0
+            continue
+        neighbor_slugs = set(n["slug"] for n in neighbors)
+        cross = 0; possible = 0
+        for n in neighbors:
+            nr = slug_map.get(n["slug"])
+            if not nr:
+                continue
+            nn_slugs = set(nn["slug"] for nn in nr.get("proximity", []))
+            cross += len(neighbor_slugs.intersection(nn_slugs) - {n["slug"]})
+            possible += len(neighbor_slugs) - 1
+        r["neighborhood_density"] = round(cross / possible, 3) if possible > 0 else 0.0
+
+    # ─── Proximity Pressure (code-specific velocity) ───────────────
+    print("Computing proximity pressure...")
+
+    # Precompute per-contractor code-specific velocity from raw awards
+    uei_code_vel = {}
+    for r in scored:
+        uei = r["uei"]
+        all_awards = recipient_index.get(uei, [])
+        base = [a for a in all_awards if a.get("award_type", "") in BASE_TYPES]
+        # Group awards by code, compute velocity per code
+        code_early = defaultdict(float)
+        code_late = defaultdict(float)
+        for a in base:
+            sd = a.get("start_date", "")
+            if not sd:
+                continue
+            try:
+                d = datetime.strptime(sd[:10], "%Y-%m-%d").date()
+            except Exception:
+                continue
+            amt = a.get("amount", 0) or 0
+            codes = set()
+            if a.get("naics"):
+                codes.add(a["naics"])
+            if a.get("psc"):
+                codes.add(a["psc"])
+            for code in codes:
+                if d < midpoint:
+                    code_early[code] += amt
+                else:
+                    code_late[code] += amt
+        uei_code_vel[uei] = (code_early, code_late)
+
+    for r in scored:
+        neighbors = r.get("proximity", [])
+        if not neighbors:
+            r["proximity_pressure"] = {"net": 0, "type": "isolated"}
+            continue
+
+        # Target's codes
+        target_codes = set(r.get("_validated_naics", []) + r.get("_validated_pscs", []))
+        if not target_codes:
+            target_codes = set()
+            for a in recipient_index.get(r["uei"], []):
+                if a.get("naics"): target_codes.add(a["naics"])
+                if a.get("psc"): target_codes.add(a["psc"])
+
+        incoming = 0; outgoing = 0
+        for n in neighbors:
+            nr = slug_map.get(n["slug"])
+            if not nr:
+                continue
+            n_early, n_late = uei_code_vel.get(nr["uei"], ({}, {}))
+            # Only count velocity in SHARED codes
+            shared = target_codes.intersection(set(n_early.keys()) | set(n_late.keys()))
+            if not shared:
+                continue
+            shared_early = sum(n_early.get(c, 0) for c in shared)
+            shared_late = sum(n_late.get(c, 0) for c in shared)
+            dv = math.log10(max(shared_late, 1)) - math.log10(max(shared_early, 1))
+            if dv > 0.3:
+                incoming += dv
+            elif dv < -0.3:
+                outgoing += abs(dv)
+        net = round(incoming - outgoing, 2)
+        if net > 1:
+            ptype = "compression"
+        elif net < -1:
+            ptype = "expansion"
+        else:
+            ptype = "neutral"
+        r["proximity_pressure"] = {"net": net, "type": ptype}
+
     # Strip internal fields
     for r in scored:
         r.pop("_validated_naics", None)
@@ -447,79 +518,27 @@ def score_all(entities, recipient_index, performed_index, state_code="NV", state
     return scored
 
 
-def _vs_avg(score):
-    """Format score relative to 50 (the median)."""
-    diff = score - 50
-    if diff > 0:
-        return f"+{diff}"
-    return str(diff)
-
-
-# ─── Out-of-state stubs ───────────────────────────────────────────────────────
-
-def build_stubs(performed_index, state_ueis, state_code="NV", min_awards=2, min_amount=250_000):
-    """
-    Generate stub records for out-of-state contractors who won work in state_code.
-    Threshold: 2+ awards and $250k+ total in the target state.
-    """
-    state_code = state_code.upper()
-    stubs = []
-    for uei, awards in performed_index.items():
-        if uei in state_ueis:
-            continue  # Already have a full Dossier
-
-        # Filter to awards performed in state_code by non-state contractors
-        nv_awards = [
-            a for a in awards
-            if a.get("performance_state") == state_code and a.get("recipient_state", "") != state_code
-        ]
-
-        if len(nv_awards) < min_awards:
-            continue
-
-        total = sum(a.get("amount", 0) for a in nv_awards)
-        if total < min_amount:
-            continue
-
-        name = nv_awards[0].get("recipient_name", "Unknown Contractor")
-        pscs = list(set(a.get("psc", "") for a in nv_awards if a.get("psc")))
-        recipient_state = nv_awards[0].get("recipient_state", "Unknown")
-
-        stubs.append({
-            "slug": "stub-" + slugify(name),
-            "name": name,
-            "uei": uei,
-            "is_stub": True,
-            "recipient_state": recipient_state,
-            "nv_award_count": len(nv_awards),
-            "nv_total_m": round(total / 1_000_000, 1),
-            "psc_codes": pscs[:5],
-        })
-
-    stubs.sort(key=lambda x: x["nv_total_m"], reverse=True)
-    print(f"Generated {len(stubs)} out-of-state stub records.")
-    return stubs
-
-
 # ─── Entry point ─────────────────────────────────────────────────────────────
 
 def run(state):
-    STATE_NAMES = {"NV": "Nevada", "TX": "Texas", "CA": "California", "AZ": "Arizona", "FL": "Florida"}
+    _STATES = json.loads((Path(__file__).parent.parent / "states.json").read_text())
+    STATE_NAMES = {k: v["name"] for k, v in _STATES.items()}
     state_lower = state.lower()
     state_name = STATE_NAMES.get(state.upper(), state.upper())
 
-    entities_path  = DATA_DIR / f"{state_lower}_entities.json"
     recipient_path = DATA_DIR / f"{state_lower}_awards_recipient.json"
-    performed_path = DATA_DIR / f"{state_lower}_awards_performed.json"
+    entities_path  = DATA_DIR / f"{state_lower}_entities.json"
 
-    with open(entities_path) as f:
-        entities = json.load(f)
     with open(recipient_path) as f:
         recipient_index = json.load(f)
-    with open(performed_path) as f:
-        performed_index = json.load(f)
 
-    scored = score_all(entities, recipient_index, performed_index, state_code=state.upper(), state_name=state_name)
+    # SBA entities enrich but don't gate
+    entities = None
+    if entities_path.exists():
+        with open(entities_path) as f:
+            entities = json.load(f)
+
+    scored = score_all(recipient_index, entities=entities, state_code=state.upper(), state_name=state_name)
 
     out_path = DATA_DIR / f"{state_lower}_scored.json"
     with open(out_path, "w") as f:
@@ -541,25 +560,23 @@ def run(state):
             uei = c.get("uei", "")
             if uei and uei in prev_snapshot:
                 prev = prev_snapshot[uei]
-                delta = c["score"] - prev["score"]
-                if abs(delta) >= 3:
-                    entry = {
-                        "name": c["name"],
-                        "slug": c["slug"],
-                        "score": c["score"],
-                        "score_class": score_class_css(c["score"]),
-                        "prev_score": prev["score"],
-                        "delta": delta,
-                        "posture_class": c["posture_class"],
-                        "prev_class": prev.get("posture_class", ""),
-                        "class_changed": c["posture_class"] != prev.get("posture_class", ""),
-                    }
-                    if delta > 0:
+                entry = {
+                    "name": c["name"],
+                    "slug": c["slug"],
+                    "posture_class": c["posture_class"],
+                    "prev_class": prev.get("posture_class", ""),
+                    "class_changed": c["posture_class"] != prev.get("posture_class", ""),
+                    "base_dollars_5yr": c["base_dollars_5yr"],
+                    "prev_base_dollars": prev.get("base_dollars_5yr", 0),
+                }
+                if entry["class_changed"]:
+                    # Class number decreased = rising (Class 4 -> Class 1 is improvement)
+                    curr_num = int(c["posture_class"].split()[-1])
+                    prev_num = int(prev.get("posture_class", "Class 4").split()[-1])
+                    if curr_num < prev_num:
                         movers_rising.append(entry)
                     else:
                         movers_declining.append(entry)
-        movers_rising.sort(key=lambda x: x["delta"], reverse=True)
-        movers_declining.sort(key=lambda x: x["delta"])
         movers_rising = movers_rising[:8]
         movers_declining = movers_declining[:8]
 
@@ -569,27 +586,23 @@ def run(state):
 
     # Save new snapshot
     new_snapshot = {
-        c["uei"]: {"score": c["score"], "posture_class": c["posture_class"]}
+        c["uei"]: {
+            "posture_class": c["posture_class"],
+            "base_dollars_5yr": c["base_dollars_5yr"],
+        }
         for c in scored if c.get("uei")
     }
     with open(snapshot_path, "w") as f:
         json.dump(new_snapshot, f)
 
     # Score distribution report
-    buckets = {"Class 1": 0, "Class 2": 0, "Class 3": 0}
+    buckets = {"Class 1": 0, "Class 2": 0, "Class 3": 0, "Class 4": 0}
     for r in scored:
         rc = r["posture_class"]
         buckets[rc] = buckets.get(rc, 0) + 1
-    print("\nScore distribution:")
+    print("\nPosture Class distribution:")
     for cls, count in buckets.items():
         print(f"  {cls}: {count}")
-
-    # Out-of-state stubs
-    state_ueis = set(e.get("uei") for e in entities)
-    stubs = build_stubs(performed_index, state_ueis, state_code=state)
-    stubs_path = DATA_DIR / f"{state_lower}_stubs.json"
-    with open(stubs_path, "w") as f:
-        json.dump(stubs, f, indent=2)
 
     print(f"\nRun next: python generate/build.py --state {state}")
 

@@ -44,11 +44,19 @@
         th.classList.add(dir === 1 ? 'asc' : 'desc');
 
         var rows = Array.from(tbody.querySelectorAll('tr'));
+        function parseDollar(t) {
+          var n = parseFloat(t.replace(/[^0-9.\-]/g, ''));
+          if (isNaN(n)) return NaN;
+          if (t.indexOf('B') !== -1) return n * 1e9;
+          if (t.indexOf('M') !== -1) return n * 1e6;
+          if (t.indexOf('K') !== -1) return n * 1e3;
+          return n;
+        }
         rows.sort(function (a, b) {
           var aText = a.cells[col] ? a.cells[col].textContent.trim() : '';
           var bText = b.cells[col] ? b.cells[col].textContent.trim() : '';
-          var aNum = parseFloat(aText.replace(/[^0-9.\-]/g, ''));
-          var bNum = parseFloat(bText.replace(/[^0-9.\-]/g, ''));
+          var aNum = parseDollar(aText);
+          var bNum = parseDollar(bText);
           if (!isNaN(aNum) && !isNaN(bNum)) return (aNum - bNum) * dir;
           return aText.localeCompare(bText) * dir;
         });
@@ -89,7 +97,7 @@
         return;
       }
       navResults.innerHTML = matches.map(function (m) {
-        return '<a href="/dossier/' + m.s + '/"><span>' + m.n + '</span><span class="sr-score">' + m.sc + ' - ' + m.cl + '</span></a>';
+        return '<a href="/dossier/' + m.s + '/"><span>' + m.n + '</span><span class="sr-score">' + m.cl + '</span></a>';
       }).join('');
       navResults.classList.add('open');
     });
@@ -263,8 +271,9 @@
         var scoreCell = '-';
         if (ueiIdx && ueiIdx[uei]) {
           var entry = ueiIdx[uei];
-          var cls = entry.score >= 75 ? 'good' : entry.score >= 50 ? 'warn' : 'bad';
-          scoreCell = '<a href="/dossier/' + entry.slug + '/"><span class="badge ' + cls + '">' + entry.score + '</span></a>';
+          var pc = entry.posture_class || '';
+          var ccls = {'Class 1':'class-1','Class 2':'class-2','Class 3':'class-3','Class 4':'class-4'}[pc] || '';
+          scoreCell = '<a href="/dossier/' + entry.slug + '/"><span class="tag ' + ccls + '">' + pc + '</span></a>';
         }
         var psc = a['PSC'];
         if (psc && typeof psc === 'object') psc = psc.code || '-';
@@ -284,7 +293,7 @@
         + '<th>Date</th><th>Agency</th><th>PSC</th>'
         + '<th style="text-align:right;">Value</th>'
         + '<th>Recipient</th>'
-        + '<th style="text-align:right;" title="FedComp Index score">Index</th>'
+        + '<th style="text-align:right;" title="Posture Class">Class</th>'
         + '</tr></thead>'
         + '<tbody>' + rows + '</tbody>'
         + '</table></div>';

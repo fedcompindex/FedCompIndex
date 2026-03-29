@@ -1,0 +1,17 @@
+{
+  "website": "https://fedcompindex.org/",
+  "methodology": "https://fedcompindex.org/methodology/",
+  "rankings_nv": "https://fedcompindex.org/nv/",
+  "github": "https://github.com/fedcompindex/FedCompIndex",
+  "huggingface_contractors": "https://huggingface.co/datasets/npetro6/nevada-federal-contractors",
+  "huggingface_awards": "https://huggingface.co/datasets/npetro6/nevada-federal-awards",
+  "kaggle_contractors": "https://www.kaggle.com/datasets/npetro6/nevada-federal-contractors-fedcomp-index",
+  "kaggle_awards": "https://www.kaggle.com/datasets/npetro6/nevada-federal-awards-2026-02",
+  "npm": "https://www.npmjs.com/package/fedcomp-index",
+  "pypi": "https://pypi.org/project/fedcomp-index/",
+  "pypi_scoring": "https://pypi.org/project/fedcomp-index-scoring/",
+  "pypi_data": "https://pypi.org/project/fedcomp-index-data/",
+  "docker": "https://hub.docker.com/r/npetro6/fedcomp-index",
+  "faq": "https://fedcompindex.org/faq/",
+  "tabularium": "https://fedcompindex.org/tabularium/"
+}

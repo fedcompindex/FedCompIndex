@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 
 {% block title %}FedComp Index | Federal Contractor Intelligence{% endblock %}
-{% block description %}FedComp Index ranks federal contractors by competitive positioning. Public data, absolute scoring. Starting with Nevada.{% endblock %}
+{% block description %}Open source federal contractor intelligence. Every contractor classified by award volume and frequency. Public data, free, no account required.{% endblock %}
 
 {% set canonical = '/' %}
 
@@ -12,7 +12,7 @@
   "@type": "WebSite",
   "name": "FedComp Index",
   "url": "{{ site_url }}/",
-  "description": "Federal contractor competitive intelligence. Posture scoring for every federal contractor based on public award data.",
+  "description": "Open source federal contractor intelligence. Rankings, competitive positioning, and proximity maps built from USASpending public obligation data.",
   "potentialAction": {
     "@type": "SearchAction",
     "target": "{{ site_url }}/nv/rankings/?q={search_term_string}",
@@ -27,7 +27,7 @@
   "name": "FedComp Index",
   "url": "{{ site_url }}/",
   "sameAs": [
-    "https://github.com/npetro6/FedCompIndex",
+    "https://github.com/fedcompindex/FedCompIndex",
     "https://huggingface.co/datasets/npetro6/nevada-federal-contractors",
     "https://pypi.org/project/fedcomp-index/"
   ]
@@ -39,16 +39,16 @@
 <div class="home-hero">
   <div class="home-hero-left">
     <h1 class="home-headline">Federal Contractor Intelligence</h1>
-    <p class="home-sub">Competitive positioning scores for every federal contractor in the state. Built from USASpending award data.</p>
+    <p class="home-sub">Every federal contractor classified by what they won and how often. Open source, public data, no account required.</p>
   </div>
   <div class="home-hero-stats">
     <div class="home-stat">
       <span class="home-stat-val">{{ stats.total }}</span>
-      <span class="label">Contractors Scored</span>
+      <span class="label">Contractors Classified</span>
     </div>
     <div class="home-stat">
       <span class="home-stat-val">{{ stats.total_volume }}</span>
-      <span class="label">Award Volume Tracked</span>
+      <span class="label">Base Contract Volume</span>
     </div>
   </div>
 </div>
@@ -107,13 +107,13 @@
     </div>
     <div class="landing-card" style="margin-top:0;">
       <span class="home-how-num">02</span>
-      <strong style="display:block;margin-top:8px;">Absolute scoring</strong>
-      <p class="muted" style="font-size:var(--sz-label);margin-top:6px;">Log-scaled to 0-100. A $10M contractor and a $100M contractor get different scores. No percentiles.</p>
+      <strong style="display:block;margin-top:8px;">Two-axis classification</strong>
+      <p class="muted" style="font-size:var(--sz-label);margin-top:6px;">Volume and frequency thresholds. Four Posture Classes from the intersection. No composite score, no percentiles.</p>
     </div>
     <div class="landing-card" style="margin-top:0;">
       <span class="home-how-num">03</span>
       <strong style="display:block;margin-top:8px;">Proximity map</strong>
-      <p class="muted" style="font-size:var(--sz-label);margin-top:6px;">Who you're competing against based on won awards. Weighted by code rarity and contract scale.</p>
+      <p class="muted" style="font-size:var(--sz-label);margin-top:6px;">Who wins similar contracts at similar scale. Weighted by code rarity, filtered by volume.</p>
     </div>
   </div>
 </div>

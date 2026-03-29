@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 
 {% block title %}{{ c.name }} | FedComp Index{% endblock %}
-{% block description %}FedComp competitive profile for {{ c.name }}, CAGE {{ c.cage }}. Score: {{ c.score }}/100. {{ c.posture_class }}.{% endblock %}
+{% block description %}FedComp competitive profile for {{ c.name }} ({{ c.uei }}). {{ c.posture_class }}. Base contract volume: {{ c.base_dollars_5yr | fmt_dollars }}.{% endblock %}
 
 {% block og_image %}{{ site_url }}/static/cards/{{ c.slug }}.jpg{% endblock %}
 {% block twitter_image %}{{ site_url }}/static/cards/{{ c.slug }}.jpg{% endblock %}
@@ -15,10 +15,11 @@
   "@type": "Organization",
   "name": {{ c.name | tojson }},
   "identifier": [
-    {"@type": "PropertyValue", "name": "CAGE", "value": {{ c.cage | tojson }}},
     {"@type": "PropertyValue", "name": "UEI", "value": {{ (c.uei or '') | tojson }}},
-    {"@type": "PropertyValue", "name": "FedComp Index", "value": "{{ c.score }}"},
-    {"@type": "PropertyValue", "name": "Posture Class", "value": {{ c.posture_class | tojson }}}
+    {"@type": "PropertyValue", "name": "Posture Class", "value": {{ c.posture_class | tojson }}},
+    {"@type": "PropertyValue", "name": "Base Contract Volume", "value": "{{ c.base_dollars_5yr }}"},
+    {"@type": "PropertyValue", "name": "Base Contract Count", "value": "{{ c.base_contract_count }}"},
+    {"@type": "PropertyValue", "name": "Obligation Density", "value": "{{ c.obligation_density }}"}
   ],
   "url": "{{ site_url }}/dossier/{{ c.slug }}/",
   "address": {
@@ -39,7 +40,7 @@
     "contentUrl": "{{ site_url }}/static/cards/{{ c.slug }}.jpg",
     "width": 1200,
     "height": 630,
-    "caption": "{{ c.name }} FedComp Index Posture Card - Score {{ c.score }}/100, {{ c.posture_class }}, Rank #{{ c.rank }} of {{ c.total }} Nevada federal contractors"
+    "caption": "{{ c.name }} FedComp Index Posture Card - {{ c.posture_class }}, Rank #{{ c.rank }} of {{ c.total }} Nevada federal contractors"
   },
   "isPartOf": {"@type": "WebSite", "name": "FedComp Index", "url": "{{ site_url }}/"}
 }
@@ -52,47 +53,23 @@
 <div class="landing-card" style="margin-top:0;">
   <div class="dossier-header">
     <div class="dossier-header-left">
-      <div class="dossier-name">{{ c.name }}</div>
+      <h1 class="dossier-name">{{ c.name }}</h1>
+      <div style="display:flex;align-items:center;gap:16px;margin-top:8px;flex-wrap:wrap;">
+        <span class="muted" style="font-size:var(--sz-label);font-family:var(--font-mono);"><span style="opacity:0.5;">UEI</span> {{ c.uei }}</span>
+        <span style="color:var(--border);">|</span>
+        <span class="muted" style="font-size:var(--sz-label);font-family:var(--font-mono);">{{ c.state_slug | upper }} #{{ c.rank }}<span style="opacity:0.5;"> / {{ c.total }}</span></span>
+        <span style="color:var(--border);">|</span>
+        <span class="muted" style="font-size:var(--sz-label);font-family:var(--font-mono);">{{ c.active_contracts }} active</span>
+      </div>
       {% if c.certifications %}
       <div class="tags" style="margin-top:10px;">
         {% for cert in c.certifications %}<span class="tag">{{ cert }}</span>{% endfor %}
       </div>
       {% endif %}
-      <div class="dossier-ids">
-        <span class="label">CAGE</span>
-        <span class="dossier-id-val">{{ c.cage or '-' }}</span>
-        <span class="dossier-ids-sep"></span>
-        <span class="label">UEI</span>
-        <span class="dossier-id-val">{{ c.uei or '-' }}</span>
-      </div>
     </div>
     <div class="dossier-header-right">
-      <span class="label">FedComp Index</span>
-      <span class="index-num {{ c.score_class }}">{{ c.score }}</span>
-      <span class="tag" style="margin-top:4px;">{{ c.posture_class }}</span>
-    </div>
-  </div>
-
-  <div class="dossier-stat-bar">
-    <div class="dossier-stat-item" title="Awards won in the past 5 years">
-      <span class="label">Awards</span>
-      <span class="dossier-stat-val">{{ c.award_count }}</span>
-    </div>
-    <div class="dossier-stat-item" title="Total contract value in the past 5 years">
-      <span class="label">Total Value</span>
-      <span class="dossier-stat-val">${{ c.awards_5yr_m }}M</span>
-    </div>
-    <div class="dossier-stat-item">
-      <span class="label">Active</span>
-      <span class="dossier-stat-val">{{ c.active_contracts }}</span>
-    </div>
-    <div class="dossier-stat-item">
-      <span class="label">Last Award</span>
-      <span class="dossier-stat-val dossier-stat-val--sm">{{ c.last_award_date or '-' }}</span>
-    </div>
-    <div class="dossier-stat-item">
-      <span class="label">{{ c.state_slug | upper }} Rank</span>
-      <span class="dossier-stat-val dossier-stat-val--sm">#{{ c.rank }} <span class="muted" style="font-size:12px;">of {{ c.total }}</span></span>
+      <span class="label">Posture Class</span>
+      <span class="index-num {{ c.class_css }}">{{ c.posture_class }}</span>
     </div>
   </div>
   </div>
@@ -105,22 +82,32 @@
 <div class="dossier-2col">
   <div class="landing-card" style="margin-top:0;">
     <div class="section-title">Index Drivers</div>
-    <table>
+    <table class="no-stripe">
       <thead>
         <tr>
           <th>Driver</th>
-          <th style="text-align:right;">Score</th>
-          <th style="text-align:right;">vs Avg</th>
+          <th style="text-align:right;">Value</th>
         </tr>
       </thead>
       <tbody>
-        {% for d in c.index_drivers %}
         <tr>
-          <td>{{ d.name }}</td>
-          <td style="text-align:right;"><span class="badge {{ d.score_class }}">{{ d.score }}</span></td>
-          <td style="text-align:right;" class="muted">{{ d.vs_avg }}</td>
+          <td title="Total base contract dollars over the past 5 years. Delivery orders excluded.">Award Volume</td>
+          <td style="text-align:right;font-family:var(--font-mono);">{{ c.base_dollars_5yr | fmt_dollars }}</td>
         </tr>
-        {% endfor %}
+        <tr>
+          <td title="Distinct base contracts (definitive contracts, purchase orders, BPA calls) over 5 years.">Award Frequency</td>
+          <td style="text-align:right;font-family:var(--font-mono);">{{ c.base_contract_count }}</td>
+        </tr>
+        <tr>
+          <td title="Dollars per base contract. High OD = concentrated revenue. Low OD = distributed wins.">Obligation Density</td>
+          <td style="text-align:right;font-family:var(--font-mono);">{{ c.obligation_density | fmt_dollars }}</td>
+        </tr>
+        <tr>
+          {% if c.velocity.cadence %}
+          <td title="Award cadence relative to this contractor's own historical rhythm. Based on time since last award vs average gap between awards.">Velocity</td>
+          <td style="text-align:right;font-family:var(--font-mono);">{{ c.velocity.cadence }}</td>
+          {% endif %}
+        </tr>
       </tbody>
     </table>
   </div>
@@ -170,7 +157,7 @@
 
 {# ── Proximity Map ─────────────────────────────────────────────────── #}
 <div class="landing-card">
-  <div class="section-title">Proximity Map</div>
+  <div class="section-title" title="The six {{ c.state_name }} contractors who win the most similar contracts at the most similar scale, based on shared NAICS and PSC codes from award records.">Proximity Map</div>
   {% if c.proximity %}
   <div class="table-wrap">
     <table>
@@ -178,8 +165,7 @@
         <tr>
           <th>Contractor</th>
           <th>Certs</th>
-          <th>NAICS</th>
-          <th style="text-align:right;">Score</th>
+          <th style="text-align:right;">Volume</th>
           <th>Class</th>
         </tr>
       </thead>
@@ -188,9 +174,8 @@
         <tr>
           <td><a href="/dossier/{{ p.slug }}/">{{ p.name }}</a></td>
           <td style="font-size:var(--sz-label);">{% for cert in p.certifications %}<span class="tag" style="margin:1px 2px;">{{ cert }}</span>{% endfor %}</td>
-          <td class="muted" style="font-size:var(--sz-label);">{{ p.naics }}</td>
-          <td style="text-align:right;"><span class="badge {{ p.score_class }}">{{ p.score }}</span></td>
-          <td><span class="tag">{{ p.posture_class }}</span></td>
+          <td style="text-align:right;font-family:var(--font-mono);">{{ p.base_dollars_5yr | fmt_dollars }}</td>
+          <td><span class="tag {{ p.class_css }}">{{ p.posture_class }}</span></td>
         </tr>
         {% endfor %}
       </tbody>
@@ -211,7 +196,7 @@
 
 <script>
 (function() {
-  var id = {{ c.cage | tojson }};
+  var id = {{ c.uei | tojson }};
   var apiBase = {{ api_url | tojson }};
   var apiLive = {{ 'true' if api_live else 'false' }};
   var totalEl = document.getElementById('spectator-total');

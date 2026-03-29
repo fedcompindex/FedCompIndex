@@ -12,7 +12,7 @@
   "@context": "https://schema.org",
   "@type": "CollectionPage",
   "name": "{{ state_name }} Federal Contractors - FedComp Index",
-  "description": "FedComp Index competitive intelligence for {{ state_name }} federal contractors. Posture scores, posture classes, and rankings.",
+  "description": "FedComp Index classification for {{ state_name }} federal contractors. Posture Classes, Proximity Maps, and rankings.",
   "url": "{{ site_url }}/{{ state_code }}/",
   "dateModified": "{{ data_date }}",
   "isPartOf": {"@type": "WebSite", "name": "FedComp Index", "url": "{{ site_url }}/"},
@@ -29,27 +29,27 @@
 <div class="index-header">
   <div class="index-header-left">
     <h1 class="page-title">{{ state_name }}</h1>
-    <span class="muted">Federal contractor competitive intelligence</span>
+    <span class="muted">{{ m.rog_pct }}% of contractors haven't won in 5 years.</span>
   </div>
   <div class="stat-bar">
-    <div class="stat-bar-item" title="{{ state_name }} contractors with at least one award in the past 5 years">
-      <span class="label">Contractors</span>
+    <div class="stat-bar-item" title="Contractors with at least one base contract award in the past 5 years">
+      <span class="label">Classified</span>
       <span class="stat-bar-val">{{ stats.total }}</span>
     </div>
-    <div class="stat-bar-item">
-      <span class="label">Avg Score</span>
-      <span class="stat-bar-val">{{ stats.avg_score }}</span>
+    <div class="stat-bar-item" title="Total base contract dollars across all classified contractors">
+      <span class="label">Volume</span>
+      <span class="stat-bar-val">{{ stats.total_volume }}</span>
     </div>
-    <div class="stat-bar-item">
-      <span class="label">Class 1</span>
-      <span class="stat-bar-val">{{ stats.class_1_count }}</span>
+    <div class="stat-bar-item" title="Gini coefficient: 0 = equal distribution, 1 = one contractor holds everything. U.S. wealth inequality is 0.85.">
+      <span class="label">Gini</span>
+      <span class="stat-bar-val">{{ m.gini }}</span>
     </div>
   </div>
 </div>
 
 <div class="chart-card" style="margin-top:20px;">
   <div class="chart-head">
-    <span class="label" id="carousel-label">Award Activity</span>
+    <span class="label" id="carousel-label" style="cursor:help;">Award Activity</span>
     <span id="chart-updated" class="muted" style="font-size:var(--sz-label);"></span>
   </div>
   <div style="position:relative;height:160px;">
@@ -69,7 +69,7 @@
 
 
 <div class="landing-card">
-  <div class="section-title">Top 5 by Certification</div>
+  <div class="section-title" title="Top 5 contractors by base contract volume over the past 5 years, filtered by certification type.">Top 5 by Certification</div>
   <div class="cert-grid">
     {% for cert in ['8(a)', 'HUBZone', 'WOSB', 'EDWOSB', 'VOSB', 'SDVOSB'] %}
     <div class="cert-col">
@@ -83,7 +83,7 @@
             <td style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">
               <a href="/dossier/{{ c.slug }}/">{{ c.name }}</a>
             </td>
-            <td style="text-align:right;white-space:nowrap;"><span class="badge {{ c.score_class }}">{{ c.score }}</span></td>
+            <td style="text-align:right;white-space:nowrap;font-family:var(--font-mono);font-size:var(--sz-label);width:70px;" class="muted">{{ c.base_dollars_5yr | fmt_dollars }}</td>
           </tr>
           {% endfor %}
         </tbody>
@@ -93,13 +93,6 @@
       {% endif %}
     </div>
     {% endfor %}
-  </div>
-</div>
-
-<div class="landing-card">
-  <div class="section-title">Recent Awards</div>
-  <div id="recent-awards">
-    <div class="muted" style="font-size:var(--sz-label);padding:8px 0;">Loading...</div>
   </div>
 </div>
 
@@ -155,7 +148,6 @@
   </div>
 </div>
 
-<div class="muted" style="font-size:var(--sz-label);text-align:center;margin-top:32px;padding:16px 0;">{{ stats.win_pct }}% of registered {{ state_name }} contractors have won a federal award in the past 5 years.</div>
 
 {% endblock %}
 
@@ -185,34 +177,71 @@
   var tickStyle = { color:MUTED, font:{ size:11, family:'Geist Mono' } };
 
   var slides = [
-    { label: 'Award Activity', live: true },
     {
-      label: 'Score Distribution',
+      label: 'Class Distribution', tip: 'Contractors by Posture Class. Class 1 = high volume + high frequency. Class 4 = entry level.',
       build: function() {
+        var labels = ['Class 1','Class 2','Class 3','Class 4'];
+        var counts = labels.map(function(l){ return d.class_counts[l] || 0; });
+        var colors = ['#0D9488','#D97706','#2563EB','#475569'];
         return {
           type: 'bar',
-          data: {
-            labels: ['0-9','10-19','20-29','30-39','40-49','50-59','60-69','70-79','80-89','90-99'],
-            datasets: [{ data: d.score_dist, backgroundColor: d.score_dist.map(function(_,i){ return i>=6?SUCCESS:i>=4?WARN:DANGER; }), borderRadius: 2 }]
-          },
+          data: { labels: labels, datasets: [{ data: counts, backgroundColor: colors, borderRadius: 2 }] },
           options: {
             responsive:true, maintainAspectRatio:false, animation:{duration:400},
-            plugins: { legend:{display:false}, tooltip:ttip },
-            scales: { x:{ticks:tickStyle,grid:gridStyle}, y:{ticks:tickStyle,grid:gridStyle} }
+            plugins: { legend:{display:false}, tooltip:Object.assign({},ttip,{callbacks:{label:function(c){return c.raw+' contractors'}}}) },
+            scales: { x:{ticks:tickStyle,grid:{display:false}}, y:{ticks:tickStyle,grid:gridStyle} }
           }
         };
       }
     },
     {
-      label: 'Agency Share',
+      label: 'Velocity', tip: 'Award cadence per class. Each contractor measured against their own historical rhythm.',
+      build: function() {
+        var labels = ['Class 1','Class 2','Class 3','Class 4'];
+        var accel = labels.map(function(l){ return d.velocity[l] ? d.velocity[l].accelerating : 0; });
+        var pace = labels.map(function(l){ return d.velocity[l] ? d.velocity[l].on_pace : 0; });
+        var slow = labels.map(function(l){ return d.velocity[l] ? d.velocity[l].slowing : 0; });
+        var inact = labels.map(function(l){ return d.velocity[l] ? -(d.velocity[l].inactive || 0) : 0; });
+        return {
+          type: 'bar',
+          data: { labels: labels, datasets: [
+            { label:'Accelerating', data: accel, backgroundColor: '#059669', borderRadius: 2 },
+            { label:'On Pace', data: pace, backgroundColor: '#0D9488', borderRadius: 2 },
+            { label:'Slowing', data: slow, backgroundColor: '#D97706', borderRadius: 2 },
+            { label:'Inactive', data: inact, backgroundColor: '#DC2626', borderRadius: 2 }
+          ]},
+          options: {
+            responsive:true, maintainAspectRatio:false, animation:{duration:400},
+            plugins: { legend:{ display:true, labels:{ color:MUTED, font:{size:10,family:'Geist'}, boxWidth:8, padding:6 } }, tooltip:Object.assign({},ttip,{callbacks:{label:function(c){return c.dataset.label+': '+Math.abs(c.raw)+' contractors'}}}) },
+            scales: { x:{ticks:tickStyle,grid:{display:false},stacked:true}, y:{ticks:tickStyle,grid:gridStyle,stacked:true} }
+          }
+        };
+      }
+    },
+    {
+      label: 'Expiration Risk', tip: 'Percentage of base contracts expiring within 12 months, by class. Higher = more concentrated contract risk.',
+      build: function() {
+        var labels = ['Class 1','Class 2','Class 3','Class 4'];
+        var colors = ['#0D9488','#D97706','#2563EB','#475569'];
+        var vals = labels.map(function(l){ return d.fragility[l] || 0; });
+        return {
+          type: 'bar',
+          data: { labels: labels, datasets: [{ data: vals, backgroundColor: colors, borderRadius: 2 }] },
+          options: {
+            responsive:true, maintainAspectRatio:false, animation:{duration:400},
+            plugins: { legend:{display:false}, tooltip:Object.assign({},ttip,{callbacks:{label:function(c){return c.raw+'% of contracts expiring within 12 months'}}}) },
+            scales: { x:{ticks:tickStyle,grid:{display:false}}, y:{ticks:Object.assign({},tickStyle,{callback:function(v){return v+'%'}}),grid:gridStyle} }
+          }
+        };
+      }
+    },
+    {
+      label: 'Agency Share', tip: 'Distribution of base contract dollars across awarding agencies.',
       build: function() {
         var colors = [ACCENT,'#3B82F6','#6366F1','#8B5CF6','#A855F7','#C084FC'];
         return {
           type: 'doughnut',
-          data: {
-            labels: d.top_agencies.map(function(x){ return x.name; }),
-            datasets: [{ data: d.top_agencies.map(function(x){ return x.value_m; }), backgroundColor: colors, borderColor: '#141B2D', borderWidth: 2 }]
-          },
+          data: { labels: d.top_agencies.map(function(x){ return x.name; }), datasets: [{ data: d.top_agencies.map(function(x){ return x.value_m; }), backgroundColor: colors, borderColor: '#141B2D', borderWidth: 2 }] },
           options: {
             responsive:true, maintainAspectRatio:false, animation:{duration:400},
             cutout: '55%',
@@ -221,18 +250,16 @@
         };
       }
     },
+    { label: 'Award Activity', live: true, tip: 'Monthly award volume from the USASpending API. Updates in real time.' },
     {
-      label: 'Certification Coverage',
+      label: 'Certifications', tip: 'Number of classified contractors holding each SBA certification type.',
       build: function() {
         var certs = ['8(a)','HUBZone','WOSB','EDWOSB','VOSB','SDVOSB'];
         var counts = certs.map(function(c){ return d.cert_coverage[c] || 0; });
         var certColors = [ACCENT,'#3B82F6',SUCCESS,'#10B981',WARN,'#F59E0B'];
         return {
           type: 'bar',
-          data: {
-            labels: certs,
-            datasets: [{ data: counts, backgroundColor: certColors, borderRadius: 2 }]
-          },
+          data: { labels: certs, datasets: [{ data: counts, backgroundColor: certColors, borderRadius: 2 }] },
           options: {
             responsive:true, maintainAspectRatio:false, animation:{duration:400},
             plugins: { legend:{display:false}, tooltip:Object.assign({},ttip,{callbacks:{label:function(c){return c.raw+' contractors'}}}) },
@@ -257,6 +284,7 @@
     current = (idx + slides.length) % slides.length;
     var slide = slides[current];
     labelEl.textContent = slide.label;
+    labelEl.title = slide.tip || '';
 
     if (slide.live) {
       stateCanvas.style.display = '';

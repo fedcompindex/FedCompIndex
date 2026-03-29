@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700;800&family=Geist+Mono:wght@400;500&display=swap');
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  width: 1200px;
+  height: 630px;
+  overflow: hidden;
+  font-family: 'Geist', system-ui, sans-serif;
+  color: #E2E8F0;
+}
+
+.card {
+  width: 1200px;
+  height: 630px;
+  position: relative;
+  overflow: hidden;
+}
+
+.bg {
+  position: absolute;
+  inset: 0;
+  background-image: url('{{BG_PATH}}');
+  background-size: cover;
+  background-position: center;
+  filter: brightness({{BG_BRIGHTNESS}}) saturate({{BG_SATURATE}});
+}
+
+.vignette {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(ellipse at {{VIGNETTE_X}}% {{VIGNETTE_Y}}%, transparent 30%, rgba(0,0,0,{{VIGNETTE_OPACITY}}) 100%);
+}
+
+.noise {
+  position: absolute;
+  inset: 0;
+  opacity: {{NOISE_OPACITY}};
+  filter: url(#grain);
+}
+
+.content {
+  position: absolute;
+  inset: 0;
+  padding: {{PAD_TOP}}px {{PAD_RIGHT}}px {{PAD_BOTTOM}}px {{PAD_LEFT}}px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+.top-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+}
+
+.brand {
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  opacity: {{LABEL_OPACITY}};
+  color: {{ACCENT_COLOR}};
+}
+
+.state-badge {
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  padding: 4px 14px;
+  border: 1px solid rgba(255,255,255,{{BADGE_BORDER_OPACITY}});
+  border-radius: 2px;
+  opacity: {{LABEL_OPACITY}};
+}
+
+.middle {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 14px;
+}
+
+.contractor-name {
+  font-size: {{NAME_SIZE}}px;
+  font-weight: {{NAME_WEIGHT}};
+  letter-spacing: {{NAME_SPACING}}em;
+  line-height: 1.15;
+  max-width: 85%;
+  color: rgba(225,232,240,{{NAME_OPACITY}});
+  text-shadow: 0 1px 3px rgba(0,0,0,0.6), 0 0 20px rgba(100,160,180,{{NAME_GLOW}});
+  mix-blend-mode: screen;
+}
+
+.certs {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.cert-tag {
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.06em;
+  padding: 3px 10px;
+  border: 1px solid rgba(255,255,255,{{TAG_BORDER_OPACITY}});
+  border-radius: 2px;
+  color: rgba(255,255,255,0.7);
+}
+
+.rule {
+  width: {{RULE_WIDTH}}%;
+  height: {{RULE_HEIGHT}}px;
+  background: linear-gradient(90deg, {{ACCENT_COLOR}}, transparent);
+  opacity: {{RULE_OPACITY}};
+  margin: {{RULE_MARGIN_TOP}}px 0 {{RULE_MARGIN_BOTTOM}}px 0;
+}
+
+.data-row {
+  display: flex;
+  align-items: baseline;
+  gap: {{DATA_GAP}}px;
+}
+
+.score-num {
+  font-family: 'Geist Mono', monospace;
+  font-size: {{SCORE_SIZE}}px;
+  font-weight: 700;
+  color: {{SCORE_COLOR}};
+  text-shadow: 0 0 {{SCORE_GLOW}}px {{SCORE_COLOR}}44, 0 0 60px {{SCORE_COLOR}}22, 0 2px 4px rgba(0,0,0,0.5);
+  line-height: 1;
+  mix-blend-mode: screen;
+}
+
+.class-badge {
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  padding: 5px 16px;
+  border: 1px solid {{SCORE_COLOR}}33;
+  border-radius: 2px;
+  color: {{SCORE_COLOR}};
+  text-shadow: 0 0 12px {{SCORE_COLOR}}33;
+  mix-blend-mode: screen;
+}
+
+.rank-text {
+  font-size: 14px;
+  font-weight: 400;
+  color: rgba(255,255,255,0.4);
+  font-family: 'Geist Mono', monospace;
+  text-shadow: 0 1px 2px rgba(0,0,0,0.5);
+}
+
+.stats-row {
+  display: flex;
+  gap: 32px;
+  margin-top: 10px;
+}
+
+.stat {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.stat-label {
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  opacity: {{LABEL_OPACITY}};
+  text-shadow: 0 1px 2px rgba(0,0,0,0.4);
+}
+
+.stat-val {
+  font-size: 15px;
+  font-weight: 500;
+  font-family: 'Geist Mono', monospace;
+  color: rgba(255,255,255,0.75);
+  text-shadow: 0 1px 3px rgba(0,0,0,0.5), 0 0 8px rgba(100,160,180,0.08);
+}
+
+.bottom-row {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.url {
+  font-size: 12px;
+  font-weight: 400;
+  letter-spacing: 0.05em;
+  opacity: {{LABEL_OPACITY}};
+  font-family: 'Geist Mono', monospace;
+}
+</style>
+</head>
+<body>
+<svg style="position:absolute;width:0;height:0;">
+  <filter id="grain">
+    <feTurbulence type="fractalNoise" baseFrequency="{{GRAIN_FREQ}}" numOctaves="4" seed="{{GRAIN_SEED}}" />
+    <feColorMatrix type="saturate" values="0" />
+  </filter>
+</svg>
+
+<div class="card">
+  <div class="bg"></div>
+  <div class="vignette"></div>
+  <div class="noise"></div>
+  <div class="content">
+    <div class="top-row">
+      <div class="brand">FedComp Index</div>
+      <div class="state-badge">{{STATE_NAME}}</div>
+    </div>
+
+    <div class="middle">
+      <div class="contractor-name">{{CONTRACTOR_NAME}}</div>
+      {{CERTS_HTML}}
+      <div class="rule"></div>
+      <div class="data-row">
+        <div class="score-num">{{POSTURE_CLASS}}</div>
+        <div class="rank-text">#{{RANK}} of {{TOTAL}}</div>
+      </div>
+      <div class="stats-row">
+        <div class="stat">
+          <span class="stat-label">Volume</span>
+          <span class="stat-val">{{VOLUME}}</span>
+        </div>
+        <div class="stat">
+          <span class="stat-label">Contracts</span>
+          <span class="stat-val">{{CONTRACTS}}</span>
+        </div>
+        <div class="stat">
+          <span class="stat-label">Velocity</span>
+          <span class="stat-val">{{VELOCITY}}</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="bottom-row">
+      <div class="url">fedcompindex.org</div>
+    </div>
+  </div>
+</div>
+</body>
+</html>

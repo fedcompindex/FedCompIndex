@@ -63,7 +63,7 @@ def count_contractors(state):
 def backup_data(state):
     s = state.lower()
     for name in [f"{s}_scored.json", f"{s}_awards_recipient.json",
-                 f"{s}_awards_performed.json", f"{s}_entities.json"]:
+                 f"{s}_entities.json"]:
         src = DATA_DIR / name
         dst = DATA_DIR / f"{name}.bak"
         if src.exists():
@@ -73,7 +73,7 @@ def backup_data(state):
 def restore_data(state):
     s = state.lower()
     for name in [f"{s}_scored.json", f"{s}_awards_recipient.json",
-                 f"{s}_awards_performed.json", f"{s}_entities.json"]:
+                 f"{s}_entities.json"]:
         bak = DATA_DIR / f"{name}.bak"
         dst = DATA_DIR / name
         if bak.exists():
@@ -84,7 +84,7 @@ def restore_data(state):
 def cleanup_backups(state):
     s = state.lower()
     for name in [f"{s}_scored.json", f"{s}_awards_recipient.json",
-                 f"{s}_awards_performed.json", f"{s}_entities.json"]:
+                 f"{s}_entities.json"]:
         bak = DATA_DIR / f"{name}.bak"
         if bak.exists():
             bak.unlink()
@@ -160,6 +160,20 @@ if __name__ == "__main__":
             print(f"GATE PASSED: gained {new_count - prev_count} contractors.")
         else:
             print("GATE PASSED: count stable.")
+
+    # Archive scored snapshot (monthly)
+    from datetime import datetime
+    archive_dir = DATA_DIR / "archive"
+    archive_dir.mkdir(exist_ok=True)
+    snapshot_name = f"{state.lower()}_scored_{datetime.now().strftime('%Y-%m')}.json"
+    snapshot_path = archive_dir / snapshot_name
+    if not snapshot_path.exists():
+        import shutil
+        shutil.copy2(DATA_DIR / f"{state.lower()}_scored.json", snapshot_path)
+        print(f"Archived: {snapshot_name}")
+
+    # Posture cards - disabled on VPS (too memory-intensive for 1GB RAM)
+    # Generate locally: python generate/cards.py --data data/nv_scored.json --output site/static/cards/
 
     # Build
     run([sys.executable, BASE_DIR / "generate" / "build.py", "--state", state])

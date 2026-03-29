@@ -242,9 +242,6 @@ footer {
   line-height: 1;
   font-variant-numeric: tabular-nums;
 }
-.index-num.good { color: var(--success); }
-.index-num.warn { color: var(--warning); }
-.index-num.bad  { color: var(--danger);  }
 
 /* ─── Card / Surface ─────────────────────────────────────────────────── */
 .card {
@@ -309,6 +306,7 @@ th.sort.desc::after   { content: " ↓"; color: var(--accent); }
 tbody tr { border-bottom: 1px solid var(--border); }
 tbody tr:last-child { border-bottom: none; }
 tbody tr:nth-child(even) { background: #0d1320; }
+.no-stripe tbody tr:nth-child(even) { background: transparent; }
 
 td { padding: 10px 14px; vertical-align: middle; }
 
@@ -324,10 +322,27 @@ td { padding: 10px 14px; vertical-align: middle; }
   font-family: var(--font-mono);
   color: #fff;
 }
-.badge.good    { background: var(--success); }
-.badge.warn    { background: var(--warning); color: #000; }
-.badge.bad     { background: var(--danger); }
 .badge.unknown { background: var(--surface); border: 1px solid var(--border); color: var(--muted); }
+.badge.class-1 { background: #0D9488; }
+.badge.class-2 { background: #D97706; color: #000; }
+.badge.class-3 { background: #2563EB; }
+.badge.class-4 { background: #475569; }
+
+/* ─── Posture Class Colors ──────────────────────────────────────────── */
+.class-1 { color: #0D9488; }
+.class-2 { color: #D97706; }
+.class-3 { color: #2563EB; }
+.class-4 { color: #475569; }
+
+.tag.class-1 { border-color: #0D9488; color: #0D9488; }
+.tag.class-2 { border-color: #D97706; color: #D97706; }
+.tag.class-3 { border-color: #2563EB; color: #2563EB; }
+.tag.class-4 { border-color: #475569; color: #475569; }
+
+.index-num.class-1 { color: #0D9488; }
+.index-num.class-2 { color: #D97706; }
+.index-num.class-3 { color: #2563EB; }
+.index-num.class-4 { color: #475569; }
 
 /* ─── Status Dot ─────────────────────────────────────────────────────── */
 .dot {
@@ -338,9 +353,7 @@ td { padding: 10px 14px; vertical-align: middle; }
   margin-right: 5px;
   vertical-align: middle;
 }
-.dot.good { background: var(--success); }
-.dot.warn { background: var(--warning); }
-.dot.bad  { background: var(--danger);  }
+
 
 /* ─── Tags ───────────────────────────────────────────────────────────── */
 .tag {
@@ -461,9 +474,10 @@ td { padding: 10px 14px; vertical-align: middle; }
 }
 
 .dossier-name {
-  font-size: 22px;
+  font-size: 28px;
   font-weight: 700;
   line-height: 1.2;
+  letter-spacing: -0.02em;
 }
 
 .dossier-ids {
