@@ -21,7 +21,7 @@
       "@type": "ImageObject",
       "contentUrl": "{{ site_url }}/static/img/chart_scatter.jpg",
       "name": "Federal Contractor Obligation Space - {{ state_name }} (n={{ m.total }})",
-      "description": "{{ m.total }} federal contractors plotted by log-scaled base contract dollars vs base contract count. Four Posture Classes visible as distinct clusters.",
+      "description": "{{ m.total }} federal contractors plotted by log-scaled total contract dollars vs base contract count. Four Posture Classes visible as distinct clusters.",
       "width": 1400,
       "height": 1000
     },
@@ -37,7 +37,7 @@
       "@type": "ImageObject",
       "contentUrl": "{{ site_url }}/static/img/chart_lorenz.jpg",
       "name": "Federal Contract Dollar Concentration - Lorenz Curve",
-      "description": "Lorenz curve showing Gini coefficient of {{ m.gini }} for federal contractor base contract dollar distribution. Top {{ m.top_1_n }} contractors hold {{ m.top_1_pct }}% of all base contract dollars.",
+      "description": "Lorenz curve showing Gini coefficient of {{ m.gini }} for federal contractor total contract dollar distribution. Top {{ m.top_1_n }} contractors hold {{ m.top_1_pct }}% of all total contract dollars.",
       "width": 1100,
       "height": 900
     }
@@ -62,13 +62,13 @@
 {# ── Classification ──────────────────────────────────────────── #}
 <div class="section">
   <h2 class="section-title">Two-Axis Classification</h2>
-  <p>Two numbers. Base contract dollars and base contract count over a trailing 5-year window. The entire classification reduces to whether each number is above or below a fixed threshold.</p>
+  <p>Two numbers. Total obligated dollars and base contract count over a trailing 5-year window. The entire classification reduces to whether each number is above or below a fixed threshold.</p>
 
   <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin:16px 0;">
     <div class="landing-card" style="margin:0;padding:16px;">
       <span class="label">Volume Axis</span>
       <span style="font-size:20px;font-weight:700;font-family:var(--font-mono);display:block;margin-top:4px;">$5,000,000</span>
-      <span class="muted" style="font-size:var(--sz-label);display:block;margin-top:4px;">Base contract dollars over 5 years. Delivery orders excluded.</span>
+      <span class="muted" style="font-size:var(--sz-label);display:block;margin-top:4px;">Total obligated dollars over 5 years.</span>
     </div>
     <div class="landing-card" style="margin:0;padding:16px;">
       <span class="label">Frequency Axis</span>
@@ -107,7 +107,7 @@
 {# ── Obligation Density ──────────────────────────────────────── #}
 <div class="section">
   <h2 class="section-title">Obligation Density</h2>
-  <p>Base contract dollars divided by base contract count. Two contractors with identical volume but different Obligation Densities represent fundamentally different positions that a single-axis ranking conflates.</p>
+  <p>Total contract dollars divided by base contract count. Two contractors with identical volume but different Obligation Densities represent fundamentally different positions that a single-axis ranking conflates.</p>
   <div class="landing-card" style="margin:12px 0;padding:16px;text-align:center;">
     <span style="font-size:28px;font-weight:700;font-family:var(--font-mono);color:var(--accent);">{{ m.od_range }}</span>
     <span class="muted" style="display:block;font-size:var(--sz-label);margin-top:4px;">range of Obligation Density ({{ m.od_min }}/contract to {{ m.od_max }}/contract)</span>
@@ -134,7 +134,7 @@
 <div class="section">
   <h2 class="section-title">Concentration</h2>
   <img src="/static/img/chart_lorenz.jpg" alt="Lorenz curve showing concentration of contractor dollar distribution" style="width:100%;border-radius:6px;border:1px solid var(--border);">
-  <p class="muted" style="font-size:var(--sz-label);margin-top:8px;">Gini coefficient: {{ m.gini }}. Top 1% ({{ m.top_1_n }} contractors) hold {{ m.top_1_pct }}% of all base contract dollars. Class 1 is {{ m.c1_pct }}% of the population and holds {{ m.c1_vol_pct }}% of dollars.</p>
+  <p class="muted" style="font-size:var(--sz-label);margin-top:8px;">Gini coefficient: {{ m.gini }}. Top 1% ({{ m.top_1_n }} contractors) hold {{ m.top_1_pct }}% of all total contract dollars. Class 1 is {{ m.c1_pct }}% of the population and holds {{ m.c1_vol_pct }}% of dollars.</p>
 </div>
 
 {# ── Velocity ────────────────────────────────────────────────── #}

@@ -1,7 +1,8 @@
 """
 FedComp Index v1.1 scoring algorithm
 Joins SBA entities + USASpending awards, classifies contractors into 4 Posture
-Classes using two-axis thresholds (volume x frequency on base contracts only),
+Classes using two-axis thresholds (volume x frequency; volume = all award dollars,
+frequency = base contracts only),
 builds Proximity Maps, outputs classified contractor records.
 
 Usage:
@@ -20,8 +21,10 @@ BASE_DIR = Path(__file__).parent.parent
 DATA_DIR = BASE_DIR / "data"
 
 # ─── Classification Thresholds ────────────────────────────────────────────────
-BASE_TYPES = {"DEFINITIVE CONTRACT", "PURCHASE ORDER", "BPA CALL"}
-VOL_THRESHOLD  = 5_000_000   # $5M in base contract dollars over 5 years
+# Frequency counts only independent competitive wins (definitive contracts + purchase orders).
+# BPA calls and delivery orders count toward volume but not frequency.
+BASE_TYPES = {"DEFINITIVE CONTRACT", "PURCHASE ORDER"}
+VOL_THRESHOLD  = 5_000_000   # $5M in total award dollars over 5 years
 FREQ_THRESHOLD = 3            # 3 distinct base contracts over 5 years
 
 TODAY = date.today()
@@ -44,7 +47,7 @@ def assign_classes(scored):
     Class 4: low vol + low freq (entry level)
     """
     for r in scored:
-        bd = r.get("base_dollars_5yr", 0)
+        bd = r.get("total_dollars_5yr", 0)
         bc = r.get("base_contract_count", 0)
         high_vol = bd >= VOL_THRESHOLD
         high_freq = bc >= FREQ_THRESHOLD
@@ -106,7 +109,7 @@ def build_proximity_map(target_uei, target_record, naics_idx, psc_idx, uei_map, 
     if not target_naics and not target_pscs:
         return []
 
-    target_vol = target_record.get("base_dollars_5yr", 0)
+    target_vol = target_record.get("total_dollars_5yr", 0)
 
     # Inverse frequency squared: rare codes explode in value (convex)
     candidates = defaultdict(float)
@@ -128,7 +131,7 @@ def build_proximity_map(target_uei, target_record, naics_idx, psc_idx, uei_map, 
     for uei, overlap_score in candidates.items():
         if overlap_score <= 0:
             continue
-        cand_vol = uei_map.get(uei, {}).get("base_dollars_5yr", 0)
+        cand_vol = uei_map.get(uei, {}).get("total_dollars_5yr", 0)
         if target_vol > 0 and cand_vol > 0:
             ratio = min(target_vol, cand_vol) / max(target_vol, cand_vol)
             score = overlap_score * (ratio ** 2)
@@ -143,7 +146,7 @@ def build_proximity_map(target_uei, target_record, naics_idx, psc_idx, uei_map, 
         {
             "slug": uei_map[uei]["slug"],
             "name": uei_map[uei]["name"],
-            "base_dollars_5yr": uei_map[uei]["base_dollars_5yr"],
+            "total_dollars_5yr": uei_map[uei]["total_dollars_5yr"],
             "certifications": uei_map[uei].get("certifications", []),
             "posture_class": uei_map[uei]["posture_class"],
             "class_css": posture_class_css(uei_map[uei]["posture_class"]),
@@ -203,12 +206,12 @@ def score_all(recipient_index, entities=None, state_code="NV", state_name="Nevad
 
         scored_awards = [a for a in awards if _in_window(a)]
 
-        # Base contract filtering
+        # Base contract filtering (frequency) + total dollars (volume)
         base_awards = [a for a in scored_awards if a.get("award_type", "") in BASE_TYPES]
         base_contract_count = len(base_awards)
-        base_dollars = sum(a.get("amount", 0) for a in base_awards)
+        total_dollars = sum(a.get("amount", 0) for a in scored_awards)
 
-        if base_contract_count == 0 or base_dollars <= 1000:
+        if base_contract_count == 0 or total_dollars <= 1000:
             continue
 
         # NAICS/PSC from ALL awards (including delivery orders)
@@ -216,8 +219,8 @@ def score_all(recipient_index, entities=None, state_code="NV", state_name="Nevad
         validated_pscs = list(set(a["psc"] for a in scored_awards if a.get("psc")))
 
         # Compute metrics
-        obligation_density = base_dollars / base_contract_count
-        log_volume = math.log10(base_dollars) if base_dollars > 0 else 0
+        obligation_density = total_dollars / base_contract_count
+        log_volume = math.log10(total_dollars) if total_dollars > 0 else 0
         log_frequency = math.log10(base_contract_count) if base_contract_count > 0 else 0
 
         # Format awards for display
@@ -228,6 +231,8 @@ def score_all(recipient_index, entities=None, state_code="NV", state_name="Nevad
                 "naics": a.get("naics", "-"),
                 "psc": a.get("psc", "-"),
                 "value_fmt": f"{a.get('amount', 0):,.0f}",
+                "type": a.get("award_type", ""),
+                "is_base": a.get("award_type", "") in BASE_TYPES,
             }
             for a in sorted(awards, key=lambda x: x.get("start_date", ""), reverse=True)[:20]
         ]
@@ -268,7 +273,7 @@ def score_all(recipient_index, entities=None, state_code="NV", state_name="Nevad
 
             # Classification (v1.1)
             "posture_class": "",  # assigned after sort
-            "base_dollars_5yr": float(base_dollars),
+            "total_dollars_5yr": float(total_dollars),
             "base_contract_count": base_contract_count,
             "obligation_density": float(obligation_density),
             "log_volume": round(log_volume, 3),
@@ -282,7 +287,7 @@ def score_all(recipient_index, entities=None, state_code="NV", state_name="Nevad
 
             # Index Drivers (for display)
             "index_drivers": [
-                {"name": "Award Volume", "value": _fmt_dollars(base_dollars), "log": round(log_volume, 2)},
+                {"name": "Award Volume", "value": _fmt_dollars(total_dollars), "log": round(log_volume, 2)},
                 {"name": "Award Frequency", "value": f"{base_contract_count} base contracts", "log": round(log_frequency, 2)},
                 {"name": "Obligation Density", "value": _fmt_dollars(obligation_density)},
             ],
@@ -301,8 +306,8 @@ def score_all(recipient_index, entities=None, state_code="NV", state_name="Nevad
 
         scored.append(record)
 
-    # Sort by base_dollars descending
-    scored.sort(key=lambda x: x["base_dollars_5yr"], reverse=True)
+    # Sort by total_dollars descending
+    scored.sort(key=lambda x: x["total_dollars_5yr"], reverse=True)
 
     # Resolve slug collisions - append suffix to duplicates
     slug_counts = {}
@@ -339,9 +344,10 @@ def score_all(recipient_index, entities=None, state_code="NV", state_name="Nevad
         base = [a for a in all_awards if a.get("award_type", "") in BASE_TYPES]
 
         # Collect award dates in window
+        # Volume (dv): ALL awards. Frequency (df): base contracts only.
         award_dates = []
         early_vol = 0; late_vol = 0; early_freq = 0; late_freq = 0
-        for a in base:
+        for a in all_awards:
             sd = a.get("start_date", "")
             if not sd:
                 continue
@@ -353,10 +359,15 @@ def score_all(recipient_index, entities=None, state_code="NV", state_name="Nevad
                 continue
             award_dates.append(d)
             amt = a.get("amount", 0) or 0
+            is_base = a.get("award_type", "") in BASE_TYPES
             if d < midpoint:
-                early_vol += amt; early_freq += 1
+                early_vol += amt
+                if is_base:
+                    early_freq += 1
             else:
-                late_vol += amt; late_freq += 1
+                late_vol += amt
+                if is_base:
+                    late_freq += 1
 
         # Fixed-split velocity (for aggregate stats / charts)
         dv = math.log10(max(late_vol, 1)) - math.log10(max(early_vol, 1))
@@ -566,8 +577,8 @@ def run(state):
                     "posture_class": c["posture_class"],
                     "prev_class": prev.get("posture_class", ""),
                     "class_changed": c["posture_class"] != prev.get("posture_class", ""),
-                    "base_dollars_5yr": c["base_dollars_5yr"],
-                    "prev_base_dollars": prev.get("base_dollars_5yr", 0),
+                    "total_dollars_5yr": c["total_dollars_5yr"],
+                    "prev_total_dollars": prev.get("total_dollars_5yr", 0),
                 }
                 if entry["class_changed"]:
                     # Class number decreased = rising (Class 4 -> Class 1 is improvement)
@@ -588,7 +599,7 @@ def run(state):
     new_snapshot = {
         c["uei"]: {
             "posture_class": c["posture_class"],
-            "base_dollars_5yr": c["base_dollars_5yr"],
+            "total_dollars_5yr": c["total_dollars_5yr"],
         }
         for c in scored if c.get("uei")
     }

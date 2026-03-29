@@ -124,7 +124,7 @@ def build_card_html(contractor, total, template, bg_data_uris):
         certs_html = ""
 
     # Format values
-    volume_fmt = fmt_dollars(contractor.get("base_dollars_5yr", 0))
+    volume_fmt = fmt_dollars(contractor.get("total_dollars_5yr", 0))
     contracts = contractor.get("base_contract_count", 0)
     velocity_dir = contractor.get("velocity", {}).get("direction", "stable")
 
@@ -239,7 +239,7 @@ def _contractor_hash(c):
         "slug": c["slug"], "name": c["name"],
         "posture_class": c.get("posture_class", ""),
         "rank": c.get("rank", ""),
-        "base_dollars_5yr": c.get("base_dollars_5yr", 0),
+        "total_dollars_5yr": c.get("total_dollars_5yr", 0),
         "base_contract_count": c.get("base_contract_count", 0),
         "certifications": c.get("certifications", []),
     }, sort_keys=True)

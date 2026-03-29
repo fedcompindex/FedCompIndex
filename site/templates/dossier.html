@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 
 {% block title %}{{ c.name }} | FedComp Index{% endblock %}
-{% block description %}FedComp competitive profile for {{ c.name }} ({{ c.uei }}). {{ c.posture_class }}. Base contract volume: {{ c.base_dollars_5yr | fmt_dollars }}.{% endblock %}
+{% block description %}FedComp competitive profile for {{ c.name }} ({{ c.uei }}). {{ c.posture_class }}. Total contract volume: {{ c.total_dollars_5yr | fmt_dollars }}.{% endblock %}
 
 {% block og_image %}{{ site_url }}/static/cards/{{ c.slug }}.jpg{% endblock %}
 {% block twitter_image %}{{ site_url }}/static/cards/{{ c.slug }}.jpg{% endblock %}
@@ -17,7 +17,7 @@
   "identifier": [
     {"@type": "PropertyValue", "name": "UEI", "value": {{ (c.uei or '') | tojson }}},
     {"@type": "PropertyValue", "name": "Posture Class", "value": {{ c.posture_class | tojson }}},
-    {"@type": "PropertyValue", "name": "Base Contract Volume", "value": "{{ c.base_dollars_5yr }}"},
+    {"@type": "PropertyValue", "name": "Total Contract Volume", "value": "{{ c.total_dollars_5yr }}"},
     {"@type": "PropertyValue", "name": "Base Contract Count", "value": "{{ c.base_contract_count }}"},
     {"@type": "PropertyValue", "name": "Obligation Density", "value": "{{ c.obligation_density }}"}
   ],
@@ -91,11 +91,11 @@
       </thead>
       <tbody>
         <tr>
-          <td title="Total base contract dollars over the past 5 years. Delivery orders excluded.">Award Volume</td>
-          <td style="text-align:right;font-family:var(--font-mono);">{{ c.base_dollars_5yr | fmt_dollars }}</td>
+          <td title="Total contract dollars (base + delivery orders) over the past 5 years.">Award Volume</td>
+          <td style="text-align:right;font-family:var(--font-mono);">{{ c.total_dollars_5yr | fmt_dollars }}</td>
         </tr>
         <tr>
-          <td title="Distinct base contracts (definitive contracts, purchase orders, BPA calls) over 5 years.">Award Frequency</td>
+          <td title="Distinct base contracts (definitive contracts and purchase orders) over 5 years.">Award Frequency</td>
           <td style="text-align:right;font-family:var(--font-mono);">{{ c.base_contract_count }}</td>
         </tr>
         <tr>
@@ -124,7 +124,7 @@
 
 {# ── Contract History ──────────────────────────────────────────────── #}
 <div class="landing-card">
-  <div class="section-title">Contract History</div>
+  <div class="section-title" title="All federal contract awards including base contracts and delivery orders. Index Drivers (Award Volume, Award Frequency) count only base contracts.">Contract History</div>
   {% if c.contracts %}
   <div class="table-wrap">
     <table>
@@ -174,7 +174,7 @@
         <tr>
           <td><a href="/dossier/{{ p.slug }}/">{{ p.name }}</a></td>
           <td style="font-size:var(--sz-label);">{% for cert in p.certifications %}<span class="tag" style="margin:1px 2px;">{{ cert }}</span>{% endfor %}</td>
-          <td style="text-align:right;font-family:var(--font-mono);">{{ p.base_dollars_5yr | fmt_dollars }}</td>
+          <td style="text-align:right;font-family:var(--font-mono);">{{ p.total_dollars_5yr | fmt_dollars }}</td>
           <td><span class="tag {{ p.class_css }}">{{ p.posture_class }}</span></td>
         </tr>
         {% endfor %}

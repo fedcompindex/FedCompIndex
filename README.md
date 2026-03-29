@@ -22,8 +22,8 @@ Two axes, no composite score:
 
 | Axis | Threshold | Measure |
 |------|-----------|---------|
-| Base contract dollars | $5,000,000 | Total obligated from base contracts (excludes delivery orders) |
-| Base contract count | 3 | Distinct contract actions in 5-year window |
+| Total contract dollars | $5,000,000 | Total obligated dollars across all contract types (base + delivery orders) |
+| Base contract count | 3 | Distinct base contract actions in 5-year window |
 
 Four Posture Classes from the intersection:
 - **Class 1** - High volume, high frequency (systematic winners)

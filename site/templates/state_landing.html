@@ -36,7 +36,7 @@
       <span class="label">Classified</span>
       <span class="stat-bar-val">{{ stats.total }}</span>
     </div>
-    <div class="stat-bar-item" title="Total base contract dollars across all classified contractors">
+    <div class="stat-bar-item" title="Total contract dollars (base + delivery orders) across all classified contractors">
       <span class="label">Volume</span>
       <span class="stat-bar-val">{{ stats.total_volume }}</span>
     </div>
@@ -69,7 +69,7 @@
 
 
 <div class="landing-card">
-  <div class="section-title" title="Top 5 contractors by base contract volume over the past 5 years, filtered by certification type.">Top 5 by Certification</div>
+  <div class="section-title" title="Top 5 contractors by total contract volume over the past 5 years, filtered by certification type.">Top 5 by Certification</div>
   <div class="cert-grid">
     {% for cert in ['8(a)', 'HUBZone', 'WOSB', 'EDWOSB', 'VOSB', 'SDVOSB'] %}
     <div class="cert-col">
@@ -83,7 +83,7 @@
             <td style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">
               <a href="/dossier/{{ c.slug }}/">{{ c.name }}</a>
             </td>
-            <td style="text-align:right;white-space:nowrap;font-family:var(--font-mono);font-size:var(--sz-label);width:70px;" class="muted">{{ c.base_dollars_5yr | fmt_dollars }}</td>
+            <td style="text-align:right;white-space:nowrap;font-family:var(--font-mono);font-size:var(--sz-label);width:70px;" class="muted">{{ c.total_dollars_5yr | fmt_dollars }}</td>
           </tr>
           {% endfor %}
         </tbody>
@@ -236,7 +236,7 @@
       }
     },
     {
-      label: 'Agency Share', tip: 'Distribution of base contract dollars across awarding agencies.',
+      label: 'Agency Share', tip: 'Distribution of total contract dollars (base + delivery orders) across awarding agencies.',
       build: function() {
         var colors = [ACCENT,'#3B82F6','#6366F1','#8B5CF6','#A855F7','#C084FC'];
         return {

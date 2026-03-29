@@ -16,7 +16,7 @@
       "name": "What is FedComp Index?",
       "acceptedAnswer": {
         "@type": "Answer",
-        "text": "An open-source classification system for federal contractors. Ingests five years of obligation data from USASpending.gov, applies a two-axis classification (base contract dollars x base contract count), and produces a Posture Class (1-4), velocity, proximity map, and public contractor dossier for every firm with base contract activity."
+        "text": "An open-source classification system for federal contractors. Ingests five years of obligation data from USASpending.gov, applies a two-axis classification (total contract dollars x base contract count), and produces a Posture Class (1-4), velocity, proximity map, and public contractor dossier for every firm with base contract activity."
       }
     },
     {
@@ -56,7 +56,7 @@
       "name": "Where can I download the data?",
       "acceptedAnswer": {
         "@type": "Answer",
-        "text": "HuggingFace, Kaggle (CSV/Parquet), or pip install fedcomp-index-data. Key columns: posture_class, base_dollars_5yr, base_contract_count, obligation_density, velocity_cadence. MIT licensed, updated monthly."
+        "text": "HuggingFace, Kaggle (CSV/Parquet), or pip install fedcomp-index-data. Key columns: posture_class, total_dollars_5yr, base_contract_count, obligation_density, velocity_cadence. MIT licensed, updated monthly."
       }
     },
     {
@@ -64,7 +64,7 @@
       "name": "What is Obligation Density?",
       "acceptedAnswer": {
         "@type": "Answer",
-        "text": "Base contract dollars divided by base contract count. Two contractors with identical volume but different Obligation Density have fundamentally different structures. One winning 200 contracts at $500K each vs one winning 2 contracts at $50M each. A single-axis revenue ranking conflates them. Obligation Density exposes the difference."
+        "text": "Total contract dollars divided by base contract count. Two contractors with identical volume but different Obligation Density have fundamentally different structures. One winning 200 contracts at $500K each vs one winning 2 contracts at $50M each. A single-axis revenue ranking conflates them. Obligation Density exposes the difference."
       }
     },
     {
@@ -126,14 +126,14 @@
   <div class="faq-item">
     <h2 class="faq-q">What is a Posture Class?</h2>
     <div class="faq-a">
-      <p>A four-class classification based on two axes: base contract dollars and base contract count over a trailing 5-year window.</p>
+      <p>A four-class classification based on two axes: total contract dollars (base + delivery orders) and base contract count over a trailing 5-year window.</p>
       <ul>
         <li><strong>Class 1</strong> — High volume ($5M+) and high frequency (3+ contracts). Systematic winners.</li>
         <li><strong>Class 2</strong> — High volume ($5M+) but low frequency (&lt;3 contracts). Concentrated risk.</li>
         <li><strong>Class 3</strong> — Low volume (&lt;$5M) but high frequency (3+ contracts). Growth pipeline.</li>
         <li><strong>Class 4</strong> — Low volume (&lt;$5M) and low frequency (&lt;3 contracts). Entry level.</li>
       </ul>
-      <p>Thresholds are fixed ($5M volume, 3 contracts) and state-invariant. Only base contracts count: definitive contracts, purchase orders, and BPA calls. Delivery orders excluded.</p>
+      <p>Thresholds are fixed ($5M volume, 3 contracts) and state-invariant. Only base contracts count: definitive contracts and purchase orders. BPA calls and delivery orders excluded.</p>
     </div>
   </div>
 
@@ -155,7 +155,7 @@
   <div class="faq-item">
     <h2 class="faq-q">What is Obligation Density?</h2>
     <div class="faq-a">
-      <p>Base contract dollars divided by base contract count. Two contractors with identical volume but different Obligation Density have fundamentally different structures. One winning 200 contracts at $500K each vs one winning 2 contracts at $50M each. A single-axis revenue ranking conflates them. Obligation Density exposes the difference.</p>
+      <p>Total contract dollars divided by base contract count. Two contractors with identical volume but different Obligation Density have fundamentally different structures. One winning 200 contracts at $500K each vs one winning 2 contracts at $50M each. A single-axis revenue ranking conflates them. Obligation Density exposes the difference.</p>
     </div>
   </div>
 
@@ -200,7 +200,7 @@
         <li><a href="https://www.kaggle.com/npetro6/datasets">Kaggle</a></li>
         <li>PyPI: <code>pip install fedcomp-index-data</code></li>
       </ul>
-      <p>Key columns: <code>posture_class</code>, <code>base_dollars_5yr</code>, <code>base_contract_count</code>, <code>obligation_density</code>, <code>velocity_cadence</code>, <code>last_award_date</code>, <code>primary_naics</code>. MIT licensed. Updated monthly.</p>
+      <p>Key columns: <code>posture_class</code>, <code>total_dollars_5yr</code>, <code>base_contract_count</code>, <code>obligation_density</code>, <code>velocity_cadence</code>, <code>last_award_date</code>, <code>primary_naics</code>. MIT licensed. Updated monthly.</p>
     </div>
   </div>
 

@@ -101,7 +101,7 @@ def build_contractor_summary(c, state_name, total):
     parts = []
     name = c["name"]
     rank = c["rank"]
-    base_dollars = c.get("base_dollars_5yr", 0)
+    base_dollars = c.get("total_dollars_5yr", 0)
     base_vol_fmt = fmt_dollars(base_dollars)
     base_count = c.get("base_contract_count", 0)
     cls = c["posture_class"]
@@ -269,7 +269,7 @@ def build(state, data_path):
 
     # Pre-compute display fields for all contractors
     for c in contractors:
-        base_dollars = c.get("base_dollars_5yr", 0)
+        base_dollars = c.get("total_dollars_5yr", 0)
         base_count = c.get("base_contract_count", 0)
         c["class_css"] = class_css(c.get("posture_class", ""))
 
@@ -292,7 +292,7 @@ def build(state, data_path):
     if entities_path.exists():
         total_registered = len(load_data(entities_path))
 
-    total_volume = sum(c.get("base_dollars_5yr", 0) for c in contractors)
+    total_volume = sum(c.get("total_dollars_5yr", 0) for c in contractors)
     total_volume_fmt = fmt_dollars(total_volume)
 
     stats = {
@@ -337,14 +337,14 @@ def build(state, data_path):
         meth["od_max"] = fmt_dollars(max(c["obligation_density"] for c in contractors))
         od_sorted = sorted(c["obligation_density"] for c in contractors)
         meth["od_range"] = f"{int(od_sorted[-1] / max(od_sorted[0], 1)):,}x"
-        vols_desc = sorted((c["base_dollars_5yr"] for c in contractors), reverse=True)
+        vols_desc = sorted((c["total_dollars_5yr"] for c in contractors), reverse=True)
         vol_total = sum(vols_desc)
         n_m = len(vols_desc)
         for pct_label, pct in [("top_1", 1), ("top_5", 5), ("top_10", 10), ("top_20", 20)]:
             top_n = max(1, int(n_m * pct / 100))
             meth[f"{pct_label}_pct"] = round(sum(vols_desc[:top_n]) / vol_total * 100, 1)
             meth[f"{pct_label}_n"] = top_n
-        sv = sorted(c["base_dollars_5yr"] for c in contractors)
+        sv = sorted(c["total_dollars_5yr"] for c in contractors)
         cum = 0; gini_sum = 0
         for i, v in enumerate(sv):
             cum += v; gini_sum += cum
@@ -353,12 +353,12 @@ def build(state, data_path):
             cls_name = f"Class {cls_num}"
             members = [c for c in contractors if c["posture_class"] == cls_name]
             meth[f"c{cls_num}_pct"] = round(len(members) / n_m * 100, 1)
-            cls_vol = sum(c["base_dollars_5yr"] for c in members)
+            cls_vol = sum(c["total_dollars_5yr"] for c in members)
             meth[f"c{cls_num}_vol_pct"] = round(cls_vol / vol_total * 100, 1)
         from datetime import datetime as _dt
         _today = date.today()
         awards_path = BASE_DIR / "data" / f"{state_lower}_awards_recipient.json"
-        _BASE_TYPES = {"DEFINITIVE CONTRACT", "PURCHASE ORDER", "BPA CALL"}
+        _BASE_TYPES = {"DEFINITIVE CONTRACT", "PURCHASE ORDER"}
         if awards_path.exists():
             import json as _json
             with open(awards_path) as _f:
@@ -432,7 +432,7 @@ def build(state, data_path):
                 "slug": c["slug"],
                 "posture_class": c["posture_class"],
                 "class_css": class_css(c["posture_class"]),
-                "base_dollars_5yr": c.get("base_dollars_5yr", 0),
+                "total_dollars_5yr": c.get("total_dollars_5yr", 0),
             }
             for c in cert_groups[cert][:5]
         ]
@@ -485,7 +485,7 @@ def build(state, data_path):
 
     # Top 10 contractors by value
     top_contractors = [
-        {"name": c["name"][:28], "value_fmt": fmt_dollars(c.get("base_dollars_5yr", 0))}
+        {"name": c["name"][:28], "value_fmt": fmt_dollars(c.get("total_dollars_5yr", 0))}
         for c in contractors[:10]
     ]
 
@@ -551,7 +551,7 @@ def build(state, data_path):
             continue
         # Add computed display fields
         c["class_css"] = class_css(c.get("posture_class", ""))
-        base_dollars = c.get("base_dollars_5yr", 0)
+        base_dollars = c.get("total_dollars_5yr", 0)
         base_count = c.get("base_contract_count", 0)
         # Propagate class_css to proximity entries
         for p in c.get("proximity", []):
@@ -603,7 +603,7 @@ def build(state, data_path):
         for label, x, y, color in [("Class 1",2.2,8.3,"#0D9488"),("Class 2",0.05,8.3,"#D97706"),("Class 3",2.2,4.3,"#2563EB"),("Class 4",0.05,4.3,"#475569")]:
             ax.text(x, y, label, color=color, fontsize=10, fontweight="bold", alpha=0.5)
         ax.set_xlabel("log\u2081\u2080(base contract count)", color="#9ca3af", fontsize=10)
-        ax.set_ylabel("log\u2081\u2080(base contract dollars)", color="#9ca3af", fontsize=10)
+        ax.set_ylabel("log\u2081\u2080(total contract dollars)", color="#9ca3af", fontsize=10)
         ax.tick_params(colors="#6b7280", labelsize=9)
         for s in ["bottom","left"]: ax.spines[s].set_color("#1e293b")
         for s in ["top","right"]: ax.spines[s].set_visible(False)
@@ -628,7 +628,7 @@ def build(state, data_path):
         for label, x, y, color in [("Class 1",2.2,8.3,"#0D9488"),("Class 2",0.05,8.3,"#D97706"),("Class 3",2.2,4.3,"#2563EB"),("Class 4",0.05,4.3,"#475569")]:
             ax.text(x, y, label, color=color, fontsize=10, fontweight="bold", alpha=0.5)
         ax.set_xlabel("log10(base contract count)", color="#9ca3af", fontsize=10)
-        ax.set_ylabel("log10(base contract dollars)", color="#9ca3af", fontsize=10)
+        ax.set_ylabel("log10(total contract dollars)", color="#9ca3af", fontsize=10)
         ax.tick_params(colors="#6b7280", labelsize=9)
         for s in ["bottom","left"]: ax.spines[s].set_color("#1e293b")
         for s in ["top","right"]: ax.spines[s].set_visible(False)
@@ -640,7 +640,7 @@ def build(state, data_path):
         # Lorenz curve
         fig, ax = plt.subplots(figsize=(5.5, 4.5))
         fig.patch.set_facecolor("#0f1724"); ax.set_facecolor("#0f1724")
-        vols = sorted(c["base_dollars_5yr"] for c in contractors)
+        vols = sorted(c["total_dollars_5yr"] for c in contractors)
         total_l = sum(vols); n_l = len(vols)
         cum_pop = [i/n_l for i in range(n_l+1)]
         cum_vol = [0]; running = 0
