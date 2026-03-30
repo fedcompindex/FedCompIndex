@@ -4,7 +4,7 @@
 
 Open source competitive intelligence for federal contractors. Classifies every small business in a state based on public award data.
 
-**[fedcompindex.org](https://fedcompindex.org/)**
+**[fedcompindex.org](https://fedcompindex.org/)** | [DOI: 10.6084/m9.figshare.31883917](https://doi.org/10.6084/m9.figshare.31883917)
 
 ## Why this exists
 
